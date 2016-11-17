@@ -8,6 +8,7 @@
 import os
 import sys
 import re
+import argparse
 
 com_dict = {
     'ecat': 'COM_ECAT-rev-a.bsp',
@@ -46,6 +47,35 @@ target_dict = {
     'c21': 'SOMANET-C21-DX',
 }
 
+arg_parser = argparse.ArgumentParser(description='Synapticon SOMANET workspace initializer')
+arg_parser.add_argument('-com', default='', help='COM module', dest='com')
+arg_parser.add_argument('-core', default='c22a', help='CORE module', dest='core')
+arg_parser.add_argument('-ifm', default='', help='IFM module', dest='ifm')
+
+args = arg_parser.parse_args()
+
+com_bsp = args.com
+core_bsp = args.core
+ifm_bsp = args.ifm
+
+err = False
+if not com_bsp in com_dict: 
+    print 'Wrong COM module'
+    err = True
+if not core_bsp in core_dict:
+    print 'Wrong CORE module'
+    err = True
+if not ifm_bsp in ifm_dict:
+    print 'Wrong IFM module'
+    err = True
+if err:
+    sys.exit(1)
+
+if core_bsp == 'c22a':
+    target = 'SOMANET-C22'
+else:
+    target = 'SOMANET-C21-DX'
+
 re_com = re.compile(r'COM_BOARD_REQUIRED')
 re_core = re.compile(r'CORE_BOARD_REQUIRED')
 re_ifm = re.compile(r'IFM_BOARD_REQUIRED')
@@ -57,9 +87,9 @@ for root, dirs, files in os.walk(sys.argv[1]):
             f = open(os.path.join(root, name), 'r')
             f_txt = f.read()
             f.close
-            f_txt = re_core.sub(c22, f_txt)
-            f_txt = re_ifm.sub(dc100, f_txt)
-            f_txt = re_com.sub(com, f_txt)
+            f_txt = re_core.sub(core_dict[core_bsp], f_txt)
+            f_txt = re_ifm.sub(ifm_dict[ifm_bsp], f_txt)
+            f_txt = re_com.sub(com_dict[com_bsp], f_txt)
             f = open(os.path.join(root, name), 'w')
             f.write(f_txt)
             f.close()
