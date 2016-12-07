@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 #####################################################################
 # Init your fresh cloned workspace. This script will automatically 
 # write your bsp-file in all main.xc files and set the right target
@@ -48,12 +49,14 @@ target_dict = {
 }
 
 arg_parser = argparse.ArgumentParser(description='Synapticon SOMANET workspace initializer')
+arg_parser.add_argument('-p', '--path', help='Path to the repository', dest='path')
 arg_parser.add_argument('-com', default='', help='COM module', dest='com')
 arg_parser.add_argument('-core', default='c22a', help='CORE module', dest='core')
 arg_parser.add_argument('-ifm', default='', help='IFM module', dest='ifm')
 
 args = arg_parser.parse_args()
 
+path = args.path
 com_bsp = args.com
 core_bsp = args.core
 ifm_bsp = args.ifm
@@ -76,20 +79,20 @@ if core_bsp == 'c22a':
 else:
     target = 'SOMANET-C21-DX'
 
-re_com = re.compile(r'COM_BOARD_REQUIRED')
-re_core = re.compile(r'CORE_BOARD_REQUIRED')
-re_ifm = re.compile(r'IFM_BOARD_REQUIRED')
-re_target = re.compile(r'TARGET = ')
+re_com = re.compile(r'\#include.+\<COM_.+\.bsp\>')
+re_core = re.compile(r'\#include.+\<CORE_.+\.bsp\>')
+re_ifm = re.compile(r'\#include.+\<IFM_.+\.bsp\>')
+re_target = re.compile(r'TARGET =.*')
 
-for root, dirs, files in os.walk(sys.argv[1]):
+for root, dirs, files in os.walk(path):
     for name in files:
         if name == 'main.xc':
             f = open(os.path.join(root, name), 'r')
             f_txt = f.read()
             f.close
-            f_txt = re_core.sub(core_dict[core_bsp], f_txt)
-            f_txt = re_ifm.sub(ifm_dict[ifm_bsp], f_txt)
-            f_txt = re_com.sub(com_dict[com_bsp], f_txt)
+            f_txt = re_core.sub('#include <'+core_dict[core_bsp]+'>', f_txt)
+            f_txt = re_ifm.sub('#include <'+ifm_dict[ifm_bsp]+'>', f_txt)
+            f_txt = re_com.sub('#include <'+com_dict[com_bsp]+'>', f_txt)
             f = open(os.path.join(root, name), 'w')
             f.write(f_txt)
             f.close()
