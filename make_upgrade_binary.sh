@@ -10,8 +10,6 @@ if [ $# -eq 0 ]
     exit 1
 fi
 
-#INPUT_NAME=""
-
 if [ $# -eq 2 ]
   then
     INPUT_NAME=$2
@@ -22,7 +20,7 @@ BOOTPARTITION_SIZE=0x30000
 
 PATH_FILE=$1
 FILE=${PATH_FILE##*/}
-NOW=$(date +"%d%m%y-%H%M%S")
+NOW=$(date +"%y%m%d-%H%M%S")
 
 if [ $INPUT_NAME ]; then
     NAME="$INPUT_NAME-$NOW.bin"
