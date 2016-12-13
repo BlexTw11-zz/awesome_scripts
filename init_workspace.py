@@ -62,13 +62,13 @@ core_bsp = args.core
 ifm_bsp = args.ifm
 
 err = False
-if not com_bsp in com_dict: 
+if not com_bsp in com_dict and com_bsp: 
     print 'Wrong COM module'
     err = True
-if not core_bsp in core_dict:
+if not core_bsp in core_dict and core_bsp:
     print 'Wrong CORE module'
     err = True
-if not ifm_bsp in ifm_dict:
+if not ifm_bsp in ifm_dict and ifm_bsp:
     print 'Wrong IFM module'
     err = True
 if err:
@@ -79,21 +79,33 @@ if core_bsp == 'c22a':
 else:
     target = 'SOMANET-C21-DX'
 
-re_com = re.compile(r'\#include.+\<COM_.+\.bsp\>')
-re_core = re.compile(r'\#include.+\<CORE_.+\.bsp\>')
-re_ifm = re.compile(r'\#include.+\<IFM_.+\.bsp\>')
+re_com = re.compile(r'\#include.+\<COM_.+\>')
+re_core = re.compile(r'\#include.+\<CORE_.+\>')
+re_ifm = re.compile(r'\#include.+\<IFM_.+\>')
 re_target = re.compile(r'TARGET =.*')
 
 for root, dirs, files in os.walk(path):
     for name in files:
         if name == 'main.xc':
-            f = open(os.path.join(root, name), 'r')
+            file_name = os.path.join(root, name)
+	    print file_name
+            f = open(file_name, 'r')
+            
             f_txt = f.read()
             f.close
-            f_txt = re_core.sub('#include <'+core_dict[core_bsp]+'>', f_txt)
-            f_txt = re_ifm.sub('#include <'+ifm_dict[ifm_bsp]+'>', f_txt)
-            f_txt = re_com.sub('#include <'+com_dict[com_bsp]+'>', f_txt)
-            f = open(os.path.join(root, name), 'w')
+	    if core_bsp:
+                f_txt = re_core.sub('#include <'+core_dict[core_bsp]+'>', f_txt)
+                print 'CORE'
+	    if ifm_bsp:
+                f_txt = re_ifm.sub('#include <'+ifm_dict[ifm_bsp]+'>', f_txt)
+                print 'IFM'
+            if com_bsp:
+                f_txt = re_com.sub('#include <'+com_dict[com_bsp]+'>', f_txt)
+                print 'COM'
+            f = open(file_name, 'w')
+	    if not f:
+                print 'Error: Could not open file to write'
+                sys.exit(1)
             f.write(f_txt)
             f.close()
 
