@@ -6,7 +6,7 @@
 if [ $# -eq 0 ]
   then
     echo "No arguments supplied"
-    echo "Call ./make_upgrade_binary.sh </path/to/file.xe>i [<output_name>]"
+    echo "Call ./make_upgrade_binary.sh </path/to/file.xe> [<output_name>]"
     exit 1
 fi
 
