@@ -1,4 +1,7 @@
 #!/bin/bash
+################################################
+# Erase your CORE module with this nice script #
+################################################
 
 TARGET="SOMANET-C22.xn"
 
