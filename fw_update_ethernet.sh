@@ -4,6 +4,8 @@
 # Make firmware update over ethernet the easy way! #
 ####################################################
 
+NODE_IP=192.168.0.1
+MASTER_IP=192.168.0.2
 TFTP=`which tftp`
 
 if [ -z ${TFTP} ]
@@ -19,7 +21,11 @@ if [ $# -eq 0 ]
     exit 1
 fi
 
-NODE_IP=192.168.0.1
+IF_NAME=`ifconfig | grep -oe "^e[nt][a-z0-9]*"
+
+# Set temporary new IP address`
+`sudo ifconfig $IF_NAME $MASTER_IP`
+
 BINARY=$1
 
 ${TFTP} $NODE_IP << !
@@ -27,3 +33,5 @@ mode binary
 put  $BINARY
 quit
 !
+# Reset IP address from interface
+`sudo ifconfig $IF_NAME 0.0.0.0`
