@@ -48,6 +48,7 @@ target_dict = {
     'c21': 'SOMANET-C21-DX',
 }
 
+
 arg_parser = argparse.ArgumentParser(description='Synapticon SOMANET workspace initializer')
 arg_parser.add_argument('-p', '--path', help='Path to the repository', dest='path')
 arg_parser.add_argument('-com', default='', help='COM module', dest='com')
@@ -88,22 +89,34 @@ for root, dirs, files in os.walk(path):
     for name in files:
         if name == 'main.xc':
             file_name = os.path.join(root, name)
-	    print file_name
+            print file_name
             f = open(file_name, 'r')
             
             f_txt = f.read()
-            f.close
-	    if core_bsp:
+            f.close()
+            if core_bsp:
                 f_txt = re_core.sub('#include <'+core_dict[core_bsp]+'>', f_txt)
                 print 'CORE'
-	    if ifm_bsp:
+            if ifm_bsp:
                 f_txt = re_ifm.sub('#include <'+ifm_dict[ifm_bsp]+'>', f_txt)
                 print 'IFM'
             if com_bsp:
-                f_txt = re_com.sub('#include <'+com_dict[com_bsp]+'>', f_txt)
+                f_txt_res = re_com.sub('#include <'+com_dict[com_bsp]+'>', f_txt)
+                if f_txt != f_txt_res:
+                    f_txt = f_txt_res
+                else:
+                    f = open(file_name, 'r')
+                    f_txt = f.readlines()
+
+                    for i in range(len(f_txt)):
+                        if re_core.search(f_txt[i]):
+                            f_txt.insert(i, '#include <'+com_dict[com_bsp]+'>\n')
+                            break
+                    f_txt = ''.join(f_txt)
+
                 print 'COM'
             f = open(file_name, 'w')
-	    if not f:
+            if not f:
                 print 'Error: Could not open file to write'
                 sys.exit(1)
             f.write(f_txt)
@@ -112,7 +125,7 @@ for root, dirs, files in os.walk(path):
         if name == 'Makefile':
             f = open(os.path.join(root, name), 'r')
             f_txt = f.read()
-            f.close
+            f.close()
             f_txt = re_target.sub('TARGET = ' + target, f_txt)
             f = open(os.path.join(root, name), 'w')
             f.write(f_txt)
