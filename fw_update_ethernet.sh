@@ -19,7 +19,7 @@ fi
 if [ $# -eq 0 ]
   then
     echo "No arguments supplied"
-    echo "Call ./make_ethernet_update.sh </path/to/binary>"
+    echo "Call $0 </path/to/binary>"
     exit 1
 fi
 
@@ -34,11 +34,14 @@ BINARY=$1
 
 ${TFTP} $NODE_IP << !
 mode binary
-put  $BINARY
+put $BINARY
 quit
 !
 
 # Reset IP address from interface
 `sudo ifconfig $IF_NAME 0.0.0.0`
 # Don't know if necessary
-`sudo dhclient $IF_NAME`
+#`sudo dhclient $IF_NAME`
+
+
+echo "Quit"
