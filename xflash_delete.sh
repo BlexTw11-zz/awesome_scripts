@@ -4,6 +4,7 @@
 ################################################
 
 TARGET="SOMANET-C22.xn"
+TARGET_PATH="targets"
 
 SCRIPT=$(readlink -f "$0")
 SCRIPTPATH=$(dirname "$SCRIPT")
@@ -11,4 +12,4 @@ SCRIPTPATH=$(dirname "$SCRIPT")
 echo "Delete target: " $TARGET
 
 # Erase chip
-xflash --erase-all --target-file $SCRIPTPATH/$TARGET
+xflash --erase-all --target-file $SCRIPTPATH/$TARGET_PATH/$TARGET
