@@ -1,11 +1,14 @@
 #!/bin/bash
-######################################
-# Usage: ./flash_contelec <BIN-FILE> #
-######################################
+#####################################################
+# Flash new firmware on REM-16MT (Contelec) sensor. #
+# Usage: ./flash_contelec <BIN-FILE>                #
+#####################################################
 
 CONTELEC_DEV="LPC1112"
 
 JLINK=`which JLinkExe`
+
+
 if [ -z ${JLINK} ]
 then
    echo "Error: JLinkExe is not installed"
@@ -20,7 +23,7 @@ then
     exit 1
 fi
 
-
+# Save binary path
 BIN=$1
 
 ${JLINK} -Device $CONTELEC_DEV -if SWD -speed 4000 << ! 
