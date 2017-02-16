@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 #####################################################################
-# Init your fresh cloned workspace. This script will automatically 
-# write your bsp-file in all main.xc files and set the right target
-# in Makefile.
-####################################################################
+# Init your fresh cloned workspace. This script will automatically  # 
+# write your bsp-file in all main.xc files and set the right target #
+# in Makefile.							    #
+#####################################################################
 
 
 import os
@@ -102,12 +102,14 @@ for root, dirs, files in os.walk(path):
                 print 'IFM'
             if com_bsp:
                 f_txt_res = re_com.sub('#include <'+com_dict[com_bsp]+'>', f_txt)
+		# If not equal, other COM bsp was already inserted
                 if f_txt != f_txt_res:
                     f_txt = f_txt_res
+		# No old COM bsp in file. Insert new COM bsp.
                 else:
                     f = open(file_name, 'r')
                     f_txt = f.readlines()
-
+	     	    # Insert COM bsp above found CORE bsp
                     for i in range(len(f_txt)):
                         if re_core.search(f_txt[i]):
                             f_txt.insert(i, '#include <'+com_dict[com_bsp]+'>\n')
