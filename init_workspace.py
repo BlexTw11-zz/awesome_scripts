@@ -18,8 +18,8 @@ com_dict = {
 }
 
 core_dict = {
-    'c21a': 'CORE_C22-rev-a.bsp',
-    'c21b': 'CORE_C22-rev-b.bsp',
+    'c21a': 'CORE_C21-rev-a.bsp',
+    'c21b': 'CORE_C21-rev-b.bsp',
 
     'c22a': 'CORE_C22-rev-a.bsp',    
 }
@@ -39,8 +39,8 @@ ifm_dict = {
 
     'dc300a': 'IFM_DC300-rev-a.bsp',
 
-    'dc500a': 'IFM_DC300-rev-a1.bsp',
-    'dc5ka3': 'IFM_DC300-rev-A3.bsp',
+    'dc500a': 'IFM_DC500-rev-a1.bsp',
+    'dc5ka3': 'IFM_DC5K-rev-A3.bsp',
 }
 
 target_dict = {
