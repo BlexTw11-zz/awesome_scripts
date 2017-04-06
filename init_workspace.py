@@ -88,7 +88,7 @@ else:
 re_com = re.compile(r'\#include.+\<COM_.+\>')
 re_core = re.compile(r'\#include.+\<CORE_.+\>')
 re_ifm = re.compile(r'\#include.+\<IFM_.+\>')
-re_target = re.compile(r'TARGET =.*')
+re_target = re.compile(r'TARGET = *\n')
 
 for root, dirs, files in os.walk(path):
     for name in files:
@@ -111,17 +111,18 @@ for root, dirs, files in os.walk(path):
                 com_found = re_com.search(f_txt)
                 if com_found:
                     f_txt = re_com.sub('#include <'+com_dict[com_bsp]+'>', f_txt)
+		    print 'Replace COM', com_bsp
                 else:
-                    f = open(file_name, 'r')
-                    f_txt = f.readlines()
+                    #f = open(file_name, 'r')
+                    #f_txt = f.readlines()
                     # Insert COM bsp above found CORE bsp
                     for i in range(len(f_txt)):
                         if re_core.search(f_txt[i]):
                             f_txt.insert(i, '#include <'+com_dict[com_bsp]+'>\n')
+                    	    print 'Insert COM', com_bsp
                             break
                     f_txt = ''.join(f_txt)
 
-                print 'COM', com_bsp
 
             f = open(file_name, 'w')
             if not f:
@@ -135,7 +136,7 @@ for root, dirs, files in os.walk(path):
             f = open(os.path.join(root, name), 'r')
             f_txt = f.read()
             f.close()
-            f_txt = re_target.sub('TARGET = ' + target, f_txt)
+            f_txt = re_target.sub('TARGET = %s\n' % target, f_txt)
             f = open(os.path.join(root, name), 'w')
             f.write(f_txt)
             f.close()
