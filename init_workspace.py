@@ -20,6 +20,7 @@ com_dict = {
 core_dict = {
     'c21a': 'CORE_C21-rev-a.bsp',
     'c21b': 'CORE_C21-rev-b.bsp',
+    'c21g2': 'CORE_C21-DX_G2.bsp',
 
     'c22a': 'CORE_C22-rev-a.bsp',    
 }
@@ -46,6 +47,7 @@ ifm_dict = {
 target_dict = {
     'c22': 'SOMANET-C22',
     'c21': 'SOMANET-C21-DX',
+    'c21g2': 'SOMANET-C21-DX_G2',
 }
 
 
@@ -82,8 +84,10 @@ if err:
 
 if core_bsp == 'c22a':
     target = 'SOMANET-C22'
-else:
+elif core_bsp == 'c21a' or core_bsp == 'c21b':
     target = 'SOMANET-C21-DX'
+elif core_bsp == 'c21g2':
+    target = 'SOMANET-C21-DX_G2'
 
 re_com = re.compile(r'\#include.+\<COM_.+\>')
 re_core = re.compile(r'\#include.+\<CORE_.+\>')
