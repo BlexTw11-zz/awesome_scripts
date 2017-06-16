@@ -3,10 +3,11 @@
 # Erase your CORE module with this nice script #
 ################################################
 
-TARGET_PATH="target"
+TARGET_PATH="targets"
 
 
-if [ $# -eq 0 ] then
+if [ $# -eq 0 ]
+then
     echo "No target supplied"
     echo "Call $0 <target>"
     exit 1
@@ -14,17 +15,17 @@ fi
 
 TARGET=$1
 
-if [ $TARGET != "C22" && $TARGET != "C21" ] then
+
+if [ $TARGET == "C22" ] 
+then
+    TARGET_FILE="SOMANET-C22.xn"
+elif [ $TARGET == "C21" ] 
+then
+    TARGET_FILE="SOMANET-C21-DX_G2.xn"
+else
     echo "Wrong target"
     echo "Use 'C22' or 'C21'"
     exit 1
-fi 
-
-
-if [ $TARGET == "C22" ] then
-    TARGET_FILE="SOMANET-C22.xn"
-elif [ $TARGET == "C21" ] then
-    TARGET_FILE="SOMANET-C21-DX_G2.xn"
 fi
 
 
