@@ -12,7 +12,7 @@ JLINK=`which JLinkExe`
 if [ -z ${JLINK} ]
 then
    echo "Error: JLinkExe is not installed"
-   echo "Download it from: https://www.segger.com/downloads/jlink/JLink_Linux_V610m_x86_64.deb"
+   echo "Download it from: https://www.segger.com/downloads/jlink/JLink_Linux_V616j_x86_64.deb"
    exit 1
 fi
 
