@@ -35,6 +35,7 @@ ifm_dict = {
     'dc1kc2': 'IFM_DC1K-rev-c2.bsp',
     'dc1kc3': 'IFM_DC1K-rev-c3.bsp',
     'dc1kc4': 'IFM_DC1K-rev-c4.bsp',
+    'dc1kd1': 'IFM_DC1K-rev-d1.bsp',
 
     'dc30a': 'IFM_DC30-rev-a.bsp',
 
