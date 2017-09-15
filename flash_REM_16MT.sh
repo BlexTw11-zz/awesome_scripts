@@ -23,8 +23,11 @@ then
     exit 1
 fi
 
+echo "Wait 5 seconds. Connect now the pinheader to the sensor"
+sleep 5
 # Save binary path
 BIN=$1
+
 
 ${JLINK} -Device $CONTELEC_DEV -if SWD -speed 4000 << ! 
 connect
