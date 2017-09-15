@@ -69,12 +69,15 @@ ifm_bsp = args.ifm
 err = False
 if not com_bsp in com_dict and com_bsp: 
     print 'Wrong COM module'
+    print com_dict
     err = True
 if not core_bsp in core_dict and core_bsp:
     print 'Wrong CORE module'
+    print core_dict
     err = True
 if not ifm_bsp in ifm_dict and ifm_bsp:
     print 'Wrong IFM module'
+    print ifm_dict
     err = True
 if not ifm_bsp:
     print 'No IFM module'
@@ -93,7 +96,7 @@ elif core_bsp == 'c21g2':
 re_com = re.compile(r'\#include.+\<COM_.+\>')
 re_core = re.compile(r'\#include.+\<CORE_.+\>')
 re_ifm = re.compile(r'\#include.+\<IFM_.+\>')
-re_target = re.compile(r'TARGET = *\n')
+re_target = re.compile(r'TARGET =.*\n')
 
 for root, dirs, files in os.walk(path):
     for name in files:
