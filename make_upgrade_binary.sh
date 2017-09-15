@@ -15,8 +15,7 @@ if [ $# -eq 2 ]
     INPUT_NAME=$2
 fi
 
-XTIMECOMPOSER=14.2
-BOOTPARTITION_SIZE=0x30000
+XTIMECOMPOSER=14.3
 
 PATH_FILE=$1
 FILE=${PATH_FILE##*/}
@@ -30,4 +29,4 @@ fi
 
 echo "Name:" $NAME
 
-xflash --factory-version $XTIMECOMPOSER --upgrade 1 $PATH_FILE --boot-partition-size $BOOTPARTITION_SIZE -o $NAME
+xflash --noinq --factory-version $XTIMECOMPOSER --upgrade 1 $PATH_FILE -o $NAME
