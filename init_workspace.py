@@ -96,58 +96,63 @@ elif core_bsp == 'c21g2':
 re_com = re.compile(r'\#include.+\<COM_.+\>')
 re_core = re.compile(r'\#include.+\<CORE_.+\>')
 re_ifm = re.compile(r'\#include.+\<IFM_.+\>')
-re_target = re.compile(r'TARGET =.*\n')
+re_target = re.compile(r'TARGET = ?(SOMANET-C22|SOMANET-C21-DX|SOMANET-C21-DX_G2|)\n')
 
 for root, dirs, files in os.walk(path):
     for name in files:
-        if name == 'main.xc':
-            file_name = os.path.join(root, name)
-            print file_name
-            f = open(file_name, 'r')
-            
-            f_txt = f.read()
-            f.close()
-            if core_bsp:
-                f_txt = re_core.sub('#include <'+core_dict[core_bsp]+'>', f_txt)
-                print 'CORE', core_bsp
+        if re.search(r'app_', root): 
+            if name == 'main.xc':
+                file_name = os.path.join(root, name)
+                print file_name
+                f = open(file_name, 'r')
+                
+                f_txt = f.read()
+                f.close()
+                if core_bsp:
+                    f_txt = re_core.sub('#include <'+core_dict[core_bsp]+'>', f_txt)
+                    print 'CORE', core_bsp
 
-            if ifm_bsp:
-                f_txt = re_ifm.sub('#include <'+ifm_dict[ifm_bsp]+'>', f_txt)
-                print 'IFM', ifm_bsp
+                if ifm_bsp:
+                    f_txt = re_ifm.sub('#include <'+ifm_dict[ifm_bsp]+'>', f_txt)
+                    print 'IFM', ifm_bsp
 
-            if com_bsp:
-                com_found = re_com.search(f_txt)
-                if com_found:
-                    f_txt = re_com.sub('#include <'+com_dict[com_bsp]+'>', f_txt)
-		    print 'Replace COM', com_bsp
-                else:
-                    #f = open(file_name, 'r')
-                    #f_txt = f.readlines()
-                    # Insert COM bsp above found CORE bsp
-                    for i in range(len(f_txt)):
-                        if re_core.search(f_txt[i]):
-                            f_txt.insert(i, '#include <'+com_dict[com_bsp]+'>\n')
-                    	    print 'Insert COM', com_bsp
-                            break
-                    f_txt = ''.join(f_txt)
+                if com_bsp:
+                    com_found = re_com.search(f_txt)
+                    if com_found:
+                        f_txt = re_com.sub('#include <'+com_dict[com_bsp]+'>', f_txt)
+                        print 'Replace COM', com_bsp
+                    else:
+                        #f = open(file_name, 'r')
+                        #f_txt = f.readlines()
+                        # Insert COM bsp above found CORE bsp
+                        for i in range(len(f_txt)):
+                            if re_core.search(f_txt[i]):
+                                f_txt.insert(i, '#include <'+com_dict[com_bsp]+'>\n')
+                                print 'Insert COM', com_bsp
+                                break
+                        f_txt = ''.join(f_txt)
 
 
-            f = open(file_name, 'w')
-            if not f:
-                print 'Error: Could not open file to write'
-                sys.exit(1)
+                f = open(file_name, 'w')
+                if not f:
+                    print 'Error: Could not open file to write'
+                    sys.exit(1)
 
-            f.write(f_txt)
-            f.close()
+                f.write(f_txt)
+                f.close()
 
-        if name == 'Makefile':
-            f = open(os.path.join(root, name), 'r')
-            f_txt = f.read()
-            f.close()
-            f_txt = re_target.sub('TARGET = %s\n' % target, f_txt)
-            f = open(os.path.join(root, name), 'w')
-            f.write(f_txt)
-            f.close()
+            if name == 'Makefile':
+                f = open(os.path.join(root, name), 'r')
+                f_txt = f.read()
+                f.close()
+                target_found = re_target.search(f_txt)
+
+                if target_found:
+                    f_txt = re_target.sub('TARGET = %s\n' % target, f_txt)
+                    print 'Insert Target', target
+                    f = open(os.path.join(root, name), 'w')
+                    f.write(f_txt)
+                    f.close()
 
 
 
