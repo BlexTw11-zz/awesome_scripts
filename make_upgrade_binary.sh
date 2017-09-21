@@ -12,7 +12,7 @@ fi
 
 if [ $# -eq 2 ]
   then
-    INPUT_NAME=$2
+    VERSION=$2
 fi
 
 XTIMECOMPOSER=14.3
@@ -21,8 +21,8 @@ PATH_FILE=$1
 FILE=${PATH_FILE##*/}
 NOW=$(date +"%y%m%d-%H%M%S")
 
-if [ $INPUT_NAME ]; then
-    NAME="$INPUT_NAME-$NOW.bin"
+if [ $VERSION ]; then
+    NAME="${FILE%.xe}-$VERSION-$NOW.bin"
 else
     NAME="${FILE%.xe}-$NOW.bin"
 fi
