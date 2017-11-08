@@ -31,6 +31,8 @@ drive_dict = {
 
     'd1000c4': 'Drive1000-rev-c4.bsp',
     'd1000d1': 'Drive1000-rev-d1.bsp',
+    'd1000d2': 'Drive1000-rev-d2.bsp',
+
 
     'd50duo': 'Drive50Duo-rev-a.bsp',
 
