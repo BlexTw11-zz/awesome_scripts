@@ -4,7 +4,7 @@
 # Make firmware update over ethernet the easy way! #
 ####################################################
 
-NODE_IP=192.168.0.1
+NODE_IP=192.168.0.11
 MASTER_IP=192.168.0.2
 
 # Check if tftp is installed
