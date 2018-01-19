@@ -1,4 +1,4 @@
-#!/bin/bash
+#tft!/bin/bash
 
 ####################################################
 # Make firmware update over ethernet the easy way! #
@@ -32,16 +32,17 @@ IF_NAME=$lastInterface
 
 BINARY=$1
 
-${TFTP} $NODE_IP << !
+${TFTP} $NODE_IP << EOF
 mode binary
 put $BINARY
 quit
-!
+EOF
 
 # Reset IP address from interface
-`sudo ifconfig $IF_NAME 0.0.0.0`
+#`sudo ifconfig $IF_NAME 0.0.0.0
 # Don't know if necessary
-#`sudo dhclient $IF_NAME`
+#`sudo dhclient $IF_NAME
 
 
 echo "Quit"
+exit 0
