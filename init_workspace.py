@@ -27,17 +27,16 @@ core_dict = {
 
 drive_dict = {
     
-    'd100a': 'Drive100.bsp',
+    'd100a': 'Drive100-rev-b.bsp',
 
-    'd1000c4': 'Drive1000-rev-c4.bsp',
-    'd1000d1': 'Drive1000-rev-d1.bsp',
-    'd1000d2': 'Drive1000-rev-d2.bsp',
+    'd1000c': 'Drive1000-rev-c.bsp',
+    'd1000d': 'Drive1000-rev-d.bsp',
 
 
     'd50duo': 'Drive50Duo-rev-a.bsp',
 
-    'd500': 'Drive500-rev-a1.bsp',
-    'd5000a3': 'Drive5000-rev-a3.bsp',
+    'd500': 'Drive500-rev-a.bsp',
+    'd5000': 'Drive5000-rev-a.bsp',
 }
 
 target_dict = {
@@ -90,7 +89,7 @@ if err:
 
 re_com = re.compile(r'\#include.+\<COM_.+\>')
 re_core = re.compile(r'\#include.+\<CORE_.+\>')
-re_drive = re.compile(r'\#include.+\<DRIVE_.+\>')
+re_drive = re.compile(r'\#include.+\<?DRIVE_.+\>?')
 re_target = re.compile(r'TARGET = ?(SOMANET-CoreC22|SOMANET-CoreC21|SOMANET-CoreC21-rev-b|SOMANET-CoreC2X|)\n')
 
 for root, dirs, files in os.walk(path):
