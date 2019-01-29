@@ -13,15 +13,15 @@ fi
 
 TARGET=$2
 
-if [ $TARGET == "C22" ]
+if [ $TARGET == "c22" ]
 then
     TARGET_FILE="SOMANET-C22.xn"
-elif [ $TARGET == "C2X" ]
+elif [ $TARGET == "c2x" ]
 then
     TARGET_FILE="SOMANET-CoreC2X.xn"
 else
     echo "Wrong target"
-    echo "Use 'C22' or 'C2X'"
+    echo "Use 'c22' or 'c2x'"
     exit 1
 fi
 

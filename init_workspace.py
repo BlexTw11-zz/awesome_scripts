@@ -21,7 +21,7 @@ core_dict = {
     'c21': 'CoreC21.bsp',
     'c21b': 'CoreC21-rev-b.bsp',
     'c22': 'CoreC22.bsp',
-    'c2x': 'CoreC2X.bsp',
+    'c2x': 'CoreC2X-rev-a.bsp',
 }
 
 
@@ -35,7 +35,7 @@ drive_dict = {
 
     'd50duo': 'Drive50Duo-rev-a.bsp',
 
-    'd500': 'Drive500-rev-a.bsp',
+    'd400d': 'Drive400-rev-d.bsp',
     'd5000': 'Drive5000-rev-a.bsp',
 }
 
