@@ -476,4 +476,4 @@ if __name__ == '__main__':
     print(serial_db.get_worksheet_names())
 
 else:
-    from exceptions import *
+    from .exceptions import *

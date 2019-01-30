@@ -1,9 +1,12 @@
-from google_drive import GoogleCalc
+#!/usr/bin/python3
+from pyworktimer_modules.google_drive import GoogleCalc
 import datetime
 import argparse
+import os 
+dir_path = os.path.dirname(os.path.realpath(__file__))
 
 FILE_ID = '1eA_842Yg7dVu1-KEg3eQ_z62UUUCP834cfz17NncuBE'
-AUTH_FILE = 'pyworktimer-07d7d9e5c27c.json'
+AUTH_FILE = dir_path + '/pyworktimer_modules/' + 'pyworktimer-9abd2337e580.json'
 APP_VERSION = 0.1
 
 class PyWorkTimer():
