@@ -29,6 +29,5 @@ if args.t:
 binary_name += '.bin'
 print('Name', binary_name)
 
-#sp.call((XFLASH_CMD % (args.path, binary_name)).split(' '))
+sp.call((XFLASH_CMD % (args.path, binary_name)).split(' '))
 
-print(os.listdir())
