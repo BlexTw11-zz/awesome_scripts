@@ -18,9 +18,9 @@ arg_parser.add_argument('-v', type=str, help='Add additional informations to bin
 
 args = arg_parser.parse_args()
 
-re_name = re.compile(r'/?(.+?).xe$')
+re_name = re.compile(r'(.*/)(.+).xe$')
 
-binary_name = re_name.search(args.path).group(1)
+binary_name = re_name.search(args.path).group(2)
 if args.v:
     binary_name += '-'+args.v
 
@@ -29,7 +29,7 @@ if args.t:
     binary_name += '-'+timestamp
 
 binary_name += '.bin'
-print('Name', binary_name)
+print('Name:', binary_name)
 
 sp.call((XFLASH_CMD % (args.path, binary_name)).split(' '))
 
