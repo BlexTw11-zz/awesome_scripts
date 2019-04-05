@@ -9,6 +9,8 @@ import os
 XTIMECOMPOSER_VERSION="14.3"
 XFLASH_CMD="xflash --noinq --factory-version " + XTIMECOMPOSER_VERSION + " --upgrade 1 %s -o %s"
 
+TRASH = ['decompressor-', 'target-xn-', 'spanning-xn-']
+
 arg_parser = argparse.ArgumentParser(description='Build upgrade binary')
 arg_parser.add_argument('path', type=str, help="Path to .xe file")
 arg_parser.add_argument('-t', required=False, action='store_true', help='Binary name with timestamp')
@@ -31,3 +33,12 @@ print('Name', binary_name)
 
 sp.call((XFLASH_CMD % (args.path, binary_name)).split(' '))
 
+# Clean working directory
+files = next(os.walk(os.getcwd()), [])[2]
+for file in files:
+    for t in TRASH:
+        if t in file:
+            os.remove(file)
+            break
+
+print('done')
