@@ -68,7 +68,6 @@ class UARTFWUploader(object):
         if res:
             print('Sending cmd FLASH to %s FAILED' % self.__port, file=sys.stderr)
             return 2
-        print("Flash...")
         res = self._call('%s %s > %s < %s' % (self.__modem, self.__binary_path, self.__port, self.__port))
         if res:
             return 3
@@ -78,12 +77,13 @@ class UARTFWUploader(object):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument(dest='flash', help='flash PATH to device', type=str)
+    parser.add_argument('-f', dest='flash', help='flash PATH to device', type=str)
     parser.add_argument('-d', dest='device', help='serial device', type=str, default='ttl232r-3v3')
     parser.add_argument('-b', dest='boot', help='boot device', action='store_true')
     args = parser.parse_args()
     dev = args.device
     if args.flash:
+        print('Flash FW...')
         uart_fw = UARTFWUploader(dev, args.flash)
         res = uart_fw.flash()
         if res:
@@ -91,6 +91,7 @@ if __name__ == '__main__':
         else:
             print("...done", res)
     elif args.boot:
+        print('Boot device...')
         uart_fw = UARTFWUploader(dev)
         res = uart_fw.boot()
         if res == 0:
