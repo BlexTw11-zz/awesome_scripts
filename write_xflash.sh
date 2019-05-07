@@ -11,23 +11,28 @@ if [ $# -eq 0 ]
 fi
 
 
-TARGET=$2
+PATH_FILE=$1
+if [ $# -eq 2 ]
+then
+    TARGET=$2
 
-if [ $TARGET == "c22" ]
-then
-    TARGET_FILE="SOMANET-C22.xn"
-elif [ $TARGET == "c2x" ]
-then
-    TARGET_FILE="SOMANET-CoreC2X.xn"
+    if [ $TARGET == "c22" ]
+    then
+        TARGET_FILE="SOMANET-C22.xn"
+    elif [ $TARGET == "c2x" ]
+    then
+        TARGET_FILE="SOMANET-CoreC2X.xn"
+    else    
+        echo "Wrong target"
+        echo "Use 'c22' or 'c2x'"
+        exit 1
+    fi
 else
-    echo "Wrong target"
-    echo "Use 'c22' or 'c2x'"
-    exit 1
+    TARGET_FILE="SOMANET-CoreC2X.xn"
 fi
 
 XTIMECOMPOSER=14.3
 
-PATH_FILE=$1
 TARGET_PATH="targets"
 SCRIPT=$(readlink -f "$0")
 SCRIPTPATH=$(dirname "$SCRIPT")
