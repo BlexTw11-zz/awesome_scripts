@@ -6,6 +6,7 @@
 
 NODE_IP=192.168.0.11
 MASTER_IP=192.168.0.2
+IF='enx3c18a0099d3c'
 
 # Check if tftp is installed
 TFTP=`which tftp`
@@ -23,9 +24,15 @@ if [ $# -eq 0 ]
     exit 1
 fi
 
-IF_NAME=`ifconfig | grep -oe "^e[nt][a-z0-9]*"`
-for i in $IF_NAME; do lastInterface=$i; done;
-IF_NAME=$lastInterface
+if [ $# -eq 2 ]
+then
+    IF_NAME=$2
+else
+    IF_NAME=$IF
+fi
+
+GET_IP=`ip -4 addr show $IF_NAME | grep -oP '(?<=inet\s)\d+(\.\d+){3}'`
+tmp_ip=${GET_IP}
 
 # Set temporary new IP address`
 `sudo ifconfig $IF_NAME $MASTER_IP`
@@ -39,10 +46,9 @@ quit
 EOF
 
 # Reset IP address from interface
-#`sudo ifconfig $IF_NAME 0.0.0.0
-# Don't know if necessary
-#`sudo dhclient $IF_NAME
-
+`sudo ifconfig $IF_NAME $tmp_ip`
+`sudo ifconfig $IF_NAME down`
+`sudo ifconfig $IF_NAME up`
 
 echo "Quit"
 exit 0
