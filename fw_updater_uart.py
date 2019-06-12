@@ -4,7 +4,7 @@ import subprocess as sp
 import os
 import sys
 import serial
-
+import time
 
 class ExceptionNoBinary(Exception):
     pass
@@ -20,6 +20,7 @@ class UARTFWUploader(object):
         self.__binary_path = None
         if binary_path:
             self.__binary_path = self._test_binary_path(binary_path)
+
         self._test_lrzsz_installation()
         self.__port = '/dev/%s' % serial
         if modem == 'x':
@@ -41,20 +42,39 @@ class UARTFWUploader(object):
         if sp.call('command -v sb', shell=True, stdout=sp.DEVNULL) != 0:
             raise ExceptionLRZSZMissing("lrzsz not installed!")
 
-    @staticmethod
-    def _call(args):
-        return sp.call(args, stdout=sp.DEVNULL, stderr=sp.DEVNULL, shell=True, timeout=10)
+    def _call(self, args):
+        return sp.call(args, stdout=sp.DEVNULL, stderr=sp.DEVNULL, shell=True, timeout=self.__timeout)
 
-    def boot(self):
+    def _send_cmd(self, cmd):
         uart = serial.Serial(self.__port, self.__baudrate, timeout=3)
         uart.reset_input_buffer()
-        uart.write(b'boot\n')
-        _input = uart.read(14)
+        _cmd = cmd
+        for c in _cmd: 
+            uart.write(c.encode())
+            time.sleep(0.001)
+        uart.write(b'\r\n')
+        time.sleep(1)
+        _input_bytes = uart.in_waiting
+        print(_input_bytes)
+        if _input_bytes == 0:
+            return ''
+        _input = uart.read(_input_bytes)
         uart.reset_input_buffer()
         uart.close()
-        return b'booting' in _input
+        return _input
+
+    def get_list(self):
+        res = self._send_cmd('info')
+        print(res)
+        return res != '' 
+
+    def boot(self):
+        res = self._send_cmd('boot')
+        return b'booting' in res
 
     def flash(self, binary_path=None):
+        file_size = os.path.getsize(binary_path)
+        self.__timeout = (file_size / 1024) + 1
         uart = serial.Serial(self.__port, self.__baudrate, timeout=3)
         uart.reset_input_buffer()
         uart.close()
@@ -80,6 +100,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', dest='flash', help='flash PATH to device', type=str)
     parser.add_argument('-d', dest='device', help='serial device', type=str, default='ttl232r-3v3')
     parser.add_argument('-b', dest='boot', help='boot device', action='store_true')
+    parser.add_argument('-l', dest='getlist', help='get file list', action='store_true')
     args = parser.parse_args()
     dev = args.device
     if args.flash:
@@ -94,7 +115,15 @@ if __name__ == '__main__':
         print('Boot device...')
         uart_fw = UARTFWUploader(dev)
         res = uart_fw.boot()
-        if res == 0:
+        if res:
+            print("...done")
+        else:
+            print("...FAILED!", res)
+    elif args.getlist:
+        print('Get List...')
+        uart_fw = UARTFWUploader(dev)
+        res = uart_fw.get_list()
+        if res:
             print("...done")
         else:
             print("...FAILED!", res)
