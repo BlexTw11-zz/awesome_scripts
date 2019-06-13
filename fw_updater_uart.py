@@ -72,13 +72,18 @@ class UARTFWUploader(object):
         return _input.decode()
 
     def get_list(self):
+        res = self._send_cmd('getlist')
+        self._print(res)
+        return res != ''
+
+    def get_info(self):
         res = self._send_cmd('info')
-        print(res)
-        return res != '' 
+        self._print(res)
+        return res != ''
 
     def boot(self):
         res = self._send_cmd('boot')
-        return b'booting' in res
+        return 'booting' in res
 
     def flash(self, binary_path=None):
         file_size = os.path.getsize(binary_path)
@@ -102,38 +107,42 @@ class UARTFWUploader(object):
         return 0
 
 
+def _check_result(res):
+    if not res:
+        print("...FAILED!", res)
+
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', dest='flash', help='flash PATH to device', type=str)
-    parser.add_argument('-d', dest='device', help='serial device', type=str, default='ttl232r-3v3')
+    parser.add_argument('-d', dest='device', help='serial device', type=str, default='ttl232r-3v3-0')
     parser.add_argument('-b', dest='boot', help='boot device', action='store_true')
     parser.add_argument('-l', dest='getlist', help='get file list', action='store_true')
+    parser.add_argument('-i', dest='info', help='get flash storage info', action='store_true')
     args = parser.parse_args()
     dev = args.device
     if args.flash:
         print('Flash FW...')
         uart_fw = UARTFWUploader(dev, args.flash)
         res = uart_fw.flash()
-        if res:
-            print("...FAILED!", res)
-        else:
-            print("...done", res)
+        _check_result(res == 0)
     elif args.boot:
         print('Boot device...')
         uart_fw = UARTFWUploader(dev)
         res = uart_fw.boot()
-        if res:
-            print("...done")
-        else:
-            print("...FAILED!", res)
+        _check_result(res)
     elif args.getlist:
         print('Get List...')
         uart_fw = UARTFWUploader(dev)
         res = uart_fw.get_list()
-        if res:
-            print("...done")
-        else:
-            print("...FAILED!", res)
+        _check_result(res)
+    elif args.info:
+        print('Get info...')
+        uart_fw = UARTFWUploader(dev)
+        res = uart_fw.get_info()
+        _check_result(res)
     else:
-        parser.print_help()   
+        parser.print_help()
+
+
