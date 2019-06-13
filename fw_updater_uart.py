@@ -46,6 +46,11 @@ class UARTFWUploader(object):
         if sp.call('command -v sb', shell=True, stdout=sp.DEVNULL) != 0:
             raise ExceptionLRZSZMissing("lrzsz not installed!")
 
+    def _print(self, res):
+        if len(res) > 0:
+            for l in res.splitlines():
+                print('>>> ' + l)
+
     def _call(self, args):
         return sp.call(args, stdout=sp.DEVNULL, stderr=sp.DEVNULL, shell=True, timeout=self.__timeout)
 
