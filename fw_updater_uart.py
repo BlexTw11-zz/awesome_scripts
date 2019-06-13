@@ -22,7 +22,11 @@ class UARTFWUploader(object):
             self.__binary_path = self._test_binary_path(binary_path)
 
         self._test_lrzsz_installation()
-        self.__port = '/dev/%s' % serial
+       
+        self.__port = '' 
+        if '/dev/' not in serial:
+            self.__port = '/dev/'
+        self.__port += serial
         if modem == 'x':
             self.__modem = 'sx'
         elif modem == 'y':
