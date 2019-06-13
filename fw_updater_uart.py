@@ -62,15 +62,14 @@ class UARTFWUploader(object):
             uart.write(c.encode())
             time.sleep(0.001)
         uart.write(b'\r\n')
-        time.sleep(1)
+        time.sleep(0.05)
         _input_bytes = uart.in_waiting
-        print(_input_bytes)
         if _input_bytes == 0:
             return ''
         _input = uart.read(_input_bytes)
         uart.reset_input_buffer()
         uart.close()
-        return _input
+        return _input.decode()
 
     def get_list(self):
         res = self._send_cmd('info')
