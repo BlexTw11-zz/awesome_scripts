@@ -1,4 +1,4 @@
-#tft!/bin/bash
+#!/bin/bash
 
 ####################################################
 # Make firmware update over ethernet the easy way! #
@@ -6,7 +6,7 @@
 
 NODE_IP=192.168.0.11
 MASTER_IP=192.168.0.2
-IF='enx3c18a0099d3c'
+IF=enx3c18a0099d3c
 
 # Check if tftp is installed
 TFTP=`which tftp`
@@ -41,6 +41,7 @@ BINARY=$1
 
 ${TFTP} $NODE_IP << EOF
 mode binary
+timeout 5
 put $BINARY
 quit
 EOF

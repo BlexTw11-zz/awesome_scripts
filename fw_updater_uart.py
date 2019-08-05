@@ -317,10 +317,13 @@ class UARTFWUploader(object):
         if not binary_path:
             binary_path = self.__binary_path
         if not re.match(r'^app.+\.bin$', binary_path, re.M):
-            raise ExceptionNoBinary('Error! "%s" is not a valid binary name. Needs to be "app_*.bin"')
+            raise ExceptionNoBinary('Error! "%s" is not a valid binary name. Needs to be "app_*.bin"' % binary_path)
         return self.__write_file('flash', binary_path) != ''
 
     def write_file(self, file_path):
+        
+        if re.match(r'^app.+\.bin$', file_path, re.M):
+            raise ExceptionNoBinary('Error! "%s" is a binary name. To flash binary use "-f"' % file_path)
         return self.__write_file('write', file_path) != ''
 
 def _check_result(res):
