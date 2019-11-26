@@ -1,12 +1,16 @@
 #!/usr/bin/python3
 
+"""
+    SOMANET UART Firmware Uploader v1.0
+    author: Henrik Strötgen
+"""
+
+
 import subprocess as sp
 import os
-import sys
 import serial
 import time
 import re
-import struct
 import threading
 import errno
 
@@ -22,11 +26,18 @@ class ExceptionLRZSZMissing(Exception):
 class UARTFWUploader(object):
 
     def __init__(self, serial, binary_path=None, baudrate=115200):
+        """
+        UART Firmware Uploader.
+        :param serial: path to serial device (e.g. ttyUSB0 or /dev/ttyUSB0)
+        :type serial: str
+        :param binary_path: Optional path to binary file
+        :type binary_path: str
+        :param baudrate: Baud rate of serial device. Bootlaoder has 115200. So don't change it!
+        :type baudrate: int
+        """
         self.__binary_path = None
         if binary_path:
             self.__binary_path = self._test_test_path(binary_path)
-
-        self._test_lrzsz_installation()
        
         self.__port = '' 
         if '/dev/' not in serial:
@@ -36,19 +47,37 @@ class UARTFWUploader(object):
         self.__port += serial
         self.__baudrate = baudrate
 
+        self._test_lrzsz_installation()
+
     @staticmethod
     def _test_test_path(path):
+        """
+        Check, if a file, which is to be sent, is existing.
+        If not, ExceptionNoBinary is raised.
+        :param path: Path to file
+        :type path: str
+        :return: Path to file
+        :rtype: str
+        """
         if os.path.isfile(path):
             return path
         raise ExceptionNoBinary("No file found")
 
-    @staticmethod
-    def _test_lrzsz_installation():
-        if sp.call('command -v sb', shell=True, stdout=sp.DEVNULL) != 0:
-            raise ExceptionLRZSZMissing("lrzsz not installed!")
+    def _test_lrzsz_installation(self):
+        """
+        Check, if lrzsz (YMODEM) is installed.
+        If not, ExceptionLRZSZMissing is raised.
+        """
+        if sp.call('command -v %s' % self.__modem_write, shell=True, stdout=sp.DEVNULL) != 0:
+            raise ExceptionLRZSZMissing("lrzsz not installed! Call \"apt install lrzsz\"")
 
     @staticmethod
     def _print(res):
+        """
+        Print a received message in a console style format.
+        :param res: Incoming message
+        :type res: binary
+        """
         if not res:
             return
         try:
@@ -63,6 +92,14 @@ class UARTFWUploader(object):
             print(res)
 
     def forward_to_serial(self, ser, proc):
+        """
+        Reads YMODEM command from stdout and sends it to serial device.
+        Code found in internet!
+        :param ser: serial device
+        :type ser: serial.Serial()
+        :param proc: subprocess, which is running YMODEM (sb, rb)
+        :type proc: subprocess.Popen
+        """
         MAX_READ_SIZE = 4096
         while True:
             try:
@@ -76,6 +113,14 @@ class UARTFWUploader(object):
             ser.write(data)
 
     def forward_to_app(self, ser, proc):
+        """
+        Reading messages from serial device and sends it through stdin to YMODEM.
+        Code found in internet!
+        :param ser: serial device
+        :type ser: serial.Serial()
+        :param proc: subprocess, which is running YMODEM (sb, rb)
+        :type proc: subprocess.Popen
+        """
         while True:
             try:
                 if ser.in_waiting:
@@ -87,6 +132,15 @@ class UARTFWUploader(object):
                     break
 
     def _call(self, args, uart):
+        """
+        Starts YMODEM in process and forward_to_app() in a thread.
+        Runs forward_to_serial() itself.
+        Code found in internet!
+        :param args: YMODEM Arguments
+        :type args: list
+        :param ser: serial device
+        :type ser: serial.Serial()
+        """
         proc = sp.Popen(args, stdin=sp.PIPE, stdout=sp.PIPE)
 
         fwc = threading.Thread(target=self.forward_to_app, args=(uart,proc,))
@@ -97,6 +151,15 @@ class UARTFWUploader(object):
         fwc.join()
 
     def _send_cmd(self, cmd, timeout=2):
+        """
+        Send a single command to bootloader. NOT YMODEM related.
+        :param cmd: Command (like getlist, boot, flash)
+        :type cmd: str
+        :param timeout: Timeout in seconds
+        :type timeout: int
+        :return: Received message
+        :rtype: binary
+        """
         uart = serial.Serial(self.__port, self.__baudrate, timeout=timeout)
         uart.reset_input_buffer()
         _cmd = cmd
@@ -122,6 +185,15 @@ class UARTFWUploader(object):
         return _input
 
     def __write_file(self, cmd, file_path):
+        """
+        Sends a file to bootloader.
+        :param cmd: Command for bootloader. Either "flash" (app) or "write" (all other files).
+        :type cmd: str
+        :param file_path: Path to file
+        :type file_path: str
+        :return: Received message
+        :rtype: binary
+        """
         file_size = os.path.getsize(file_path)
         # Speed: roughly 8000 bytes/seconds
         timeout = (file_size / 8000) + 1
@@ -148,19 +220,28 @@ class UARTFWUploader(object):
         uart.close()
         return res
 
-    def __read_file(self, cmd, args):
-        file_path = args.read
-        file_size = self.read_file_size(file_path)
+    def __read_file(self, cmd, file_name):
+        """
+        Read file from flash storage.
+        :param cmd: Command for reading (read)
+        :type cmd: str
+        :param file_name: File which is to be read.
+        :type file_name: str
+        """
+
+        # Get file size and also check if file is existing on node
+        file_size = self.read_file_size(file_name)
         if not file_size:
-            print('Error! Just try again')
+            print('>>> Error! File not in file system')
             return
 
+        # Calculate timeout. 8000 bytes per second is roughly the speed.
         timeout = (file_size / 8000) + 1
         if timeout < 5:
             timeout = 5
 
         self._send_cmd('\n')
-        cmd += ' '+file_path
+        cmd += ' '+file_name
         res = self._send_cmd(cmd)
         self._print(res)
 
@@ -178,6 +259,13 @@ class UARTFWUploader(object):
         return res
 
     def read_file_size(self, _file):
+        """
+        Get file size. Call getlist and parse the content.
+        :param _file: file name
+        :type _file: str
+        :return: file size in byte
+        :rtype: int
+        """
         retry = 5
         while True:
             res = self.send_cmd('getlist')
@@ -191,6 +279,13 @@ class UARTFWUploader(object):
             retry -= 1
 
     def send_cmd(self, cmd):
+        """
+        Send command to bootloader. Retry on received "Unknown command"
+        :param cmd: bootloader command
+        :type cmd: str
+        :return: Received message
+        :rtype: binary
+        """
         retry = 5
         while True:
             res = self._send_cmd(cmd)
@@ -214,7 +309,20 @@ class UARTFWUploader(object):
     def remove(self, file_name):
         return self._send_cmd('remove %s' % file_name)
 
+    def write_file(self, file_path):
+        return self.__write_file('write', file_path)
+
+    def read_file(self, file_path):
+        return self.__read_file('read', file_path)
+
     def flash_fw(self, binary_path=None):
+        """
+        Flash firmware.
+        :param binary_path: Path to firmware
+        :type binary_path: str
+        :return: Received message
+        :rtype: binary
+        """
         if not binary_path:
             binary_path = self.__binary_path
 
@@ -223,13 +331,13 @@ class UARTFWUploader(object):
 
         return self.__write_file('flash', binary_path)
 
-    def write_file(self, file_path):
-        return self.__write_file('write', file_path)
-
-    def read_file(self, file_path):
-        return self.__read_file('read', file_path)
-
-    def remove_bin(self):
+    def remove_fw(self):
+        """
+        Remove firmware
+        :return: Received message
+        :rtype: binary
+        """
+        # Create pseudo binary, which contains only a string and flash this file.
         bin_empty = 'app_empty.bin'
         if not os.path.isfile(bin_empty):
             with open(bin_empty, 'w') as f:
@@ -270,7 +378,7 @@ if __name__ == '__main__':
         _check_result(res)
     elif args.read:
         print('read file...')
-        res = uart_fw.read_file(args)
+        res = uart_fw.read_file(args.read)
         _check_result(res)
     elif args.boot:
         print('Boot device...')
@@ -292,7 +400,7 @@ if __name__ == '__main__':
         uart_fw.remove(args.remove)
     elif args.remove_bin:
         print("Remove app from device...")
-        uart_fw.remove_bin()
+        uart_fw.remove_fw()
     else:
         parser.print_help()
 
