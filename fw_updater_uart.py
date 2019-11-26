@@ -175,11 +175,12 @@ class UARTFWUploader(object):
             if (time.time() - t0) > timeout:
                 print("Timeout! Not receiving reply!")
                 return None
-        _input_bytes = uart.in_waiting
 
-        if _input_bytes == 0:
-            return b''
-        _input = uart.read(_input_bytes)
+        _input = b''
+        while uart.in_waiting:
+            _input_bytes = uart.in_waiting
+            _input += uart.read(_input_bytes)
+            time.sleep(0.05)
         uart.reset_input_buffer()
         uart.close()
         return _input
