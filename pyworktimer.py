@@ -22,7 +22,7 @@ class PyWorkTimer():
         self.gcalc = GoogleCalc(AUTH_FILE, FILE_ID)
         self.gcalc.open_file()
 
-        sheets = self.gcalc.get_worksheet_names()
+        sheets = self.gcalc._get_worksheet_names()
         for sh in sheets:
             if self.year in sh:
                 self.gcalc.open_sheet(sh)

@@ -2,10 +2,12 @@ import gspread
 import gspread.utils as gut
 import httplib2
 import logging
+import json
+import re
+
 from oauth2client.service_account import ServiceAccountCredentials
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive as gdrive
-
 
 
 class GoogleDrive(object):
@@ -36,6 +38,15 @@ class GoogleDrive(object):
             'q': "title contains '{}' and trashed=false".format(fldname)}).GetList()
         return file_list
 
+    def list_files(self, name):
+        file_list = self.drive.ListFile({
+            'q': "'{}' in parents  and trashed=false".format(name),
+        }).GetList()
+        ret_list = {}
+        for f in file_list:
+            ret_list[f['title'].lower()] = f['id']
+        return ret_list
+
     def upload_file(self, name, path=None, folder=None, folder_id=None):
         """
         Upload a file to gDrive. If it already exists, its content will be updated. Otherwise a new file will be created.
@@ -49,10 +60,12 @@ class GoogleDrive(object):
         :type folder_id: str
         """
         if not self.folder_id and folder:
-            self.folder_id = self.__find_file(folder)[0]['id']
+            f = self.__find_file(folder)
+            print(f)
+            if f:
+                self.folder_id = f[0]['id']
         elif folder_id:
             self.folder_id = folder_id
-
 
         find_file = self.__find_file(name)
         # If file exists, update content
@@ -67,10 +80,53 @@ class GoogleDrive(object):
             file['parents'] = [{u'id': self.folder_id}]
 
         _path = path + name
-        #print(_path)
+        # print(_path)
         file.SetContentFile(_path)
-        #print(file)
+        # print(file)
         file.Upload()
+
+    def create_folder(self, title, parent_id):
+        # Create folder
+        folder_metadata = {
+            'title':    title,
+            'mimeType': 'application/vnd.google-apps.folder',
+            "parents":  [
+                {
+                    "kind": "drive#parentReference",
+                    "id":   parent_id,
+                }
+            ],
+        }
+        folder = self.drive.CreateFile(folder_metadata)
+        folder.Upload()
+
+
+def check_api_exception(function_with_expected_exceptions):
+    """
+    Decorator to catch "credentials expired"-Exception in first place.
+    Catches also "invalid Permission"-Exceptions and reraise a new Exception, which is more clear.
+
+    :param function_with_expected_exceptions: decorated function
+    :type function_with_expected_exceptions: function
+    :return: return value of decorated function
+    :rtype: value
+    """
+
+    def wrapper(*args, **kwargs):
+        try:
+            return function_with_expected_exceptions(*args, **kwargs)
+        except gspread.exceptions.APIError as e:
+            self = args[0]
+            err = json.loads(str(e))['error']
+            if err['code'] == 403 or err['code'] == 401:
+                logging.warning('Try to reconnect: ' + str(e))
+                self.open()
+                return function_with_expected_exceptions(*args, **kwargs)
+            elif err['code'] == 400 and 'protected cell' in err['message']:
+                raise ExceptionPermission('Invalid permissions for sheet "{}" of DB "{}"'.format(self.sheet_name(), self.name())) from e
+            raise e
+
+    return wrapper
 
 
 class GoogleCalc(object):
@@ -80,7 +136,7 @@ class GoogleCalc(object):
     Additionally implements some helpful functions.
     """
 
-    def __init__(self, keyfile, file_name, sheet_name = None, lock_row=0):
+    def __init__(self, keyfile, file_name, sheet_name='', lock_row=0):
         """
         Init class.
         :param keyfile: Login credentials
@@ -99,7 +155,6 @@ class GoogleCalc(object):
         self.__file = None
         self.__lock_row = lock_row
 
-
     def open_file(self):
         """
         Use creds to create a client to interact with the Google Drive API
@@ -108,38 +163,39 @@ class GoogleCalc(object):
         """
         try:
             scope = ['https://spreadsheets.google.com/feeds',
-                    'https://www.googleapis.com/auth/drive']
+                     'https://www.googleapis.com/auth/drive']
             creds = ServiceAccountCredentials.from_json_keyfile_name(self.__keyfile, scope)
             client = gspread.authorize(creds)
 
             # Find a workbook by name and open the first sheet
             # Make sure you use the right name here.
             self.__file = client.open_by_key(self.__file_name)
+            # print(self.__file.list_permissions())
             return True
         except httplib2.ServerNotFoundError as e:
             logging.error('ERROR: Could not connect to google.com')
             logging.error(str(e))
             raise ExceptionGoogle('ERROR: Could not connect to google.com')
         except gspread.exceptions.WorksheetNotFound:
-            err_str = 'ERROR: Sheet %s not found' % self.__file_name
+            err_str = 'ERROR: File %s not found' % self.__file_name
             logging.error(err_str)
             raise ExceptionGoogle(err_str)
 
-    def open_sheet(self, sheet=None):
+    def open_sheet(self, file=None):
         """
         Opens an existing sheet
         :return: True if successfully opened
         :rtype: bool
         """
-        if not self.__file and (not self._sheet_name or not sheet):
+        if not self.__file:
             return False
-        
-        if sheet:
-            self._sheet_name = sheet
-        
-        self.__sheet = self.__file.worksheet(self._sheet_name)
-        return True
 
+        if file:
+            self._sheet_name = file
+
+        self.__sheet = self.__file.worksheet(self._sheet_name)
+
+        return True
 
     def open(self):
         """
@@ -151,6 +207,10 @@ class GoogleCalc(object):
             return self.open_sheet()
         return False
 
+    @check_api_exception
+    def _list_permissions(self):
+        return self.__file.list_permissions()
+
     def get_sheets(self):
         """
         Returns all existing sheet names in a calc file.
@@ -160,7 +220,7 @@ class GoogleCalc(object):
         if not self.__file:
             return
         return [e.title for e in self.__file.worksheets()]
-    
+
     def name(self):
         """
         Returns file name
@@ -169,27 +229,43 @@ class GoogleCalc(object):
         """
         return self.__file.title
 
-    def write(self, row, col, string):
+    def sheet_name(self):
+        return self._sheet_name
+
+    def _write_without_check(self, row, col, string):
+        self.__sheet.update_cell(row, col, string)
+        res = self.__sheet.cell(row, col)
+        if str(string) != str(res.value):
+            raise ExceptionGoogle('Could not write value "%s" to (%s, %s) in "%s"! Read "%s" instead' % (string, row, col, self._sheet_name, res.value))
+
+    def __write(self, row, col, string):
+        if row <= self.__lock_row:
+            raise ExceptionGoogle('Tried to write to locked row "%d"!' % row)
+        self.__sheet.update_cell(row, col, string)
+        res = self.__sheet.cell(row, col)
+        if str(string) != str(res.value):
+            raise ExceptionGoogle('Could not write value "%s" to (%s, %s)! Read "%s"' % (string, row, col, res.value))
+
+    @check_api_exception
+    def insert_row(self, row, values):
+        self.__sheet.insert_row(values, row)
+
+    @check_api_exception
+    def write(self, row, col, value):
         """
         Write "string" into a cell at "row/col"
         :param row: Row index
         :type row: int
         :param col: Column index
         :type col: int
-        :param string: new cell content
-        :type string: str
+        :param value: new cell content
+        :type value: str, int
         :return: Server response
         :rtype: str
         """
-        #if row <= self.__lock_row:
-         #   return
-        try:
-            return self.__sheet.update_cell(row, col, string)
-        except gspread.exceptions.APIError:
-            self.open()
-            logging.warning('Invalid authentication credentials! Reconnect...')
-            return self.__sheet.update_cell(row, col, string)
+        self.__write(row, col, value)
 
+    @check_api_exception
     def get_cell(self, row, col):
         """
         Get content of a cell at "row/col"
@@ -200,16 +276,12 @@ class GoogleCalc(object):
         :return: Cell content, else None
         :rtype: str
         """
-        try:
-            res = self.__sheet.cell(row, col)
-        except gspread.exceptions.APIError:
-            self.open()
-            logging.warning('Invalid authentication credentials! Reconnect...')
-            res = self.__sheet.cell(row, col)
+        res = self.__sheet.cell(row, col)
         if not res:
             return None
         return res.value
 
+    @check_api_exception
     def get_row_values(self, row):
         """
         Get content of a complete row.
@@ -218,26 +290,18 @@ class GoogleCalc(object):
         :return: List with row content
         :rtype: list
         """
-        try:
-            return self.__sheet.row_values(str(row))
-        except gspread.exceptions.APIError:
-            self.open()
-            logging.warning('Invalid authentication credentials! Reconnect...')
-            return self.__sheet.row_values(str(row))
+        return self.__sheet.row_values(str(row))
 
+    @check_api_exception
     def get_row_count(self):
         """
         Returns number of rows in sheet.
         :return: number of rows
         :rtype: int
         """
-        try:
-            return self.__sheet.row_count
-        except gspread.exceptions.APIError:
-            self.open()
-            logging.warning('Invalid authentication credentials! Reconnect...')
-            return self.__sheet.row_count
+        return self.__sheet.row_count
 
+    @check_api_exception
     def get_col_values(self, col):
         """
         Returns all values of a column.
@@ -246,13 +310,9 @@ class GoogleCalc(object):
         :return: List with values
         :rtype: list
         """
-        try:
-            return self.__sheet.col_values(str(col))
-        except gspread.exceptions.APIError:
-            self.open()
-            logging.warning('Invalid authentication credentials! Reconnect...')
-            return self.__sheet.col_values(str(col))
+        return self.__sheet.col_values(str(col))
 
+    @check_api_exception
     def get_all_records(self, head=1):
         """
         Return all values in a sheet. First row values are used as column indexes
@@ -262,25 +322,38 @@ class GoogleCalc(object):
         :return: List with all values
         :rtype: list
         """
-        try:
-            return self.__sheet.get_all_records(head=head)
-        except gspread.APIError:
-            self.open()
-            logging.warning('Invalid authentication credentials! Reconnect...')
-            #return self.__sheet.get_all_records()
+        return self.__sheet.get_all_records(head=head)
 
+    @check_api_exception
     def get_all_values(self):
         """
         Return all value without special treatment.
         :return: List of all values.
         :rtype: list
         """
-        try:
-            return self.__sheet.get_all_values()
-        except gspread.APIError:
-            self.open()
-            logging.warning('Invalid authentication credentials! Reconnect...')
-            #return self.__sheet.get_all_records()
+        return self.__sheet.get_all_values()
+
+    @check_api_exception
+    def __write_col_cells(self, cell_list, c1, c2):
+        """
+        Writes and reads cells to verify content.
+        :param cell_list: list of content
+        :type cell_list: list
+        :param c1: cell coordinate
+        :type c1: str
+        :param c2: cell coordinate
+        :type c2: str
+        """
+
+        self.__sheet.update_cells(cell_list)
+        res_cell_list = self.__sheet.range('%s:%s' % (c1, c2))
+        for new, old in zip(res_cell_list, cell_list):
+            if new.value != old.value:
+                raise ExceptionGoogle('Could not update cells from "%s" to "%s" in "%s"' % (c1, c2, self._sheet_name))
+
+    @check_api_exception
+    def _get_range(self, c1, c2):
+        return self.__sheet.range('%s:%s' % (c1, c2))
 
     def write_col_multi(self, row, col_start, values):
         """
@@ -297,21 +370,15 @@ class GoogleCalc(object):
         col_stop = col_start + len(values) - 1
         c1 = gut.rowcol_to_a1(row, col_start)
         c2 = gut.rowcol_to_a1(row, col_stop)
-        try:
-            cell_list = self.__sheet.range('%s:%s' % (c1, c2))
-        except gspread.exceptions.APIError:
-            self.open()
-            logging.warning('Invalid authentication credentials! Reconnect...')
-            cell_list = self.__sheet.range('%s:%s' % (c1, c2))
+
+        cell_list = self._get_range(c1, c2)
+
         for cell, val in zip(cell_list, values):
             cell.value = val
-            try:
-                self.__sheet.update_cells(cell_list)
-            except gspread.exceptions.APIError:
-                self.open()
-                logging.warning('Invalid authentication credentials! Reconnect...')
-                self.__sheet.update_cells(cell_list)
 
+        self.__write_col_cells(cell_list, c1, c2)
+
+    @check_api_exception
     def _append_row(self, values):
         """
         Append values at the end of a sheet
@@ -320,13 +387,9 @@ class GoogleCalc(object):
         :return: Server response
         :rtype: str
         """
-        try:
-            return self.__sheet.append_row(values)
-        except gspread.exceptions.APIError:
-            self.open()
-            logging.warning('Invalid authentication credentials! Reconnect...')
-            return self.__sheet.append_row(values)
+        return self.__sheet.append_row(values)
 
+    @check_api_exception
     def _delete_row(self, index):
         """
         Deletes row "index"
@@ -335,26 +398,19 @@ class GoogleCalc(object):
         :return: Server response
         :rtype: str
         """
-        try:
-            return self.__sheet.delete_row(index)
-        except gspread.exceptions.APIError:
-            self.open()
-            logging.warning('Invalid authentication credentials! Reconnect...')
-            return self.__sheet.delete_row(index)
+        return self.__sheet.delete_row(index)
 
-    def get_worksheet_names(self):
+    @check_api_exception
+    def _get_worksheet_names(self):
         """
         Returns worksheet name
         :return: worksheet name
         :rtype: str
         """
-        try:
-            wsh = self.__file.worksheets()
-            return [sheet.title for sheet in wsh]
-        except gspread.exceptions.APIError:
-            self.open_file()
-            logging.warning('Invalid authentication credentials! Reconnect...')
+        wsh = self.__file.worksheets()
+        return [sheet.title for sheet in wsh]
 
+    @check_api_exception
     def get_range(self, range):
         """
         Returns a range in a worksheet.
@@ -364,13 +420,9 @@ class GoogleCalc(object):
         :return: list of values
         :rtype: list
         """
-        try:
-            return self.__sheet.range(range)
-        except gspread.exceptions.APIError:
-            self.open()
-            logging.warning('Invalid authentication credentials! Reconnect...')
-            return self.__sheet.range(range)
+        return self.__sheet.range(range)
 
+    @check_api_exception
     def get_row_range(self, row, col_start, col_stop):
         """
         Returns a range in row "row" from "col_start" to "col_stop"
@@ -383,32 +435,28 @@ class GoogleCalc(object):
         :return: list of values
         :rtype: list
         """
-        try:
-            res = self.__sheet.range(row, col_start,  row, col_stop)
-        except gspread.exceptions.APIError:
-            self.open()
-            logging.warning('Invalid authentication credentials! Reconnect...')
-            res = self.__sheet.range(row, col_start,  row, col_stop)
+        res = self.__sheet.range(row, col_start, row, col_stop)
         return [e.value for e in res]
 
+    @check_api_exception
     def find(self, value):
         """
         Find value in worksheet
         :param value: value
-        :type value: str
+        :type value: str, re
         :return: cell object with value and col/row else None
         :rtype: cell object
         """
         try:
-            try:
-                res = self.__sheet.find(value)
-                return res
-            except gspread.exceptions.APIError:
-                self.open()
-                logging.warning('Invalid authentication credentials! Reconnect...')
-                return self.__sheet.find(value)
+            re_query = re.compile(value, re.MULTILINE)
+            res = self.__sheet.find(re_query)
+            return res
         except gspread.exceptions.CellNotFound:
             return None
+
+    @check_api_exception
+    def _get_col_values(self, c):
+        return self.__sheet.col_values(c)
 
     def get_columns(self, *args):
         """
@@ -422,18 +470,13 @@ class GoogleCalc(object):
         # Determine number of columns and create list with all indexes
         if len(args) == 1 and type(args[0]) is str:
             cols = args[0].split(':')
-            cols = [c-ord('A')+1 for c in range(ord(cols[0]), ord(cols[1])+1)]
+            cols = [c - ord('A') + 1 for c in range(ord(cols[0]), ord(cols[1]) + 1)]
         elif len(args) == 2:
-            cols = [i for i in range(args[0], args[1]+1)]
+            cols = [i for i in range(args[0], args[1] + 1)]
 
         vertical_lists = []
         for c in cols:
-            try:
-                col = self.__sheet.col_values(c)
-            except gspread.exceptions.APIError:
-                self.open()
-                logging.warning('Invalid authentication credentials! Reconnect...')
-                col = self.__sheet.col_values(c)
+            col = self._get_col_values(c)
 
             for cell in col[::-1]:
                 if cell is None:
@@ -450,6 +493,8 @@ class GoogleCalc(object):
 
 
 if __name__ == '__main__':
+    import os
+    from exceptions import *
 
     # class response():
     #     text = 'OHHHH FUCK'
@@ -460,20 +505,27 @@ if __name__ == '__main__':
     # except gspread.exceptions.APIError:
     #     print('booom')
 
-    #drive = GoogleDrive()
+    drive = GoogleDrive('../db/settings.yaml')
+    # drive.upload_file('')
+    # print(drive.list_files('1Nx11QaonmvArk4b4H2Qbwcnr2vnbmVH5'))
+    # print(drive.list_files('1t_9HKHwF4ijOia2YJxHoxLUJAhh_wXlD'))
+    # print(drive.list_files('1cZpiwqbIo2ieIBYdd-pWJcdUVGleqKMN'))
+    # print(drive.list_files('17sfUTjm2cENNpvGGQMZniWEY5uLLNK10'))
+    drive.create_folder('Stack_9504', '1Nx11QaonmvArk4b4H2Qbwcnr2vnbmVH5')  # , folder='Drive400_E1')
+
     # for f in os.listdir('reports'):
     #     if os.path.isfile('reports/' + f):
     #         print('reports/' + f)
-    #drive.upload_file('test.test', folder='Reports')
-    #for subdir, dirs, files in os.walk('reports'):
+    # drive.upload_file('test.test', folder='Reports')
+    # for subdir, dirs, files in os.walk('reports'):
     #    for f in files:
     #        print(f)
-            #drive.upload_file(f, 'Reports')
-    from exceptions import *
-    import time
-    serial_db = GoogleCalc('../db/My_Project-132abd953c77.json', '1DtAyNrj-pb06BeFmqnnvaGMpWtoaywOvVG4DYrxqyuw')#, 'INSPECTOR_LIST')
-    serial_db.open_file()
-    print(serial_db.get_worksheet_names())
+    #         drive.upload_file(f, 'Reports')
+    # from exceptions import *
+    # import time
+    # serial_db = GoogleCalc('../db/My_Project-132abd953c77.json', '1DtAyNrj-pb06BeFmqnnvaGMpWtoaywOvVG4DYrxqyuw')#, 'INSPECTOR_LIST')
+    # serial_db.open_file()
+    # print(serial_db.get_worksheet_names())
 
 else:
     from .exceptions import *
