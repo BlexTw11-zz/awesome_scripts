@@ -188,7 +188,7 @@ class UARTFWUploader(object):
 
             if retry == 0:
                 return
-            retry += 1
+            retry -= 1
 
     def send_cmd(self, cmd):
         retry = 5
