@@ -248,7 +248,7 @@ class UARTFWUploader(object):
 
         print()
         uart = serial.Serial(self.__port, self.__baudrate, timeout=timeout)
-        modem = [self.__modem_read, '-E', '-t', str(timeout*10)]
+        modem = [self.__modem_read, '-E', '-t', str(int(timeout*10))]
 
         self._call(modem, uart)
         time.sleep(0.01)
