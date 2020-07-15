@@ -5,7 +5,7 @@
     author: Henrik Strötgen
 """
 
-
+import sys
 import subprocess as sp
 import os
 import serial
@@ -13,13 +13,22 @@ import time
 import re
 import threading
 import errno
+import zipfile
+import tempfile
+import glob
+import logging
 
+logging.basicConfig(stream=sys.stderr, level=logging.INFO, format='(%(levelname)s): %(message)s')
+logger = logging.getLogger(__name__)
 
-class ExceptionNoBinary(Exception):
+class ExceptionUART(Exception):
+    pass
+
+class ExceptionNoBinary(ExceptionUART):
     pass
 
 
-class ExceptionLRZSZMissing(Exception):
+class ExceptionLRZSZMissing(ExceptionUART):
     pass
 
 
@@ -42,9 +51,11 @@ class UARTFWUploader(object):
         self.__port = '' 
         if '/dev/' not in serial:
             self.__port = '/dev/'
+        self.__port += serial
+        if not os.path.exists(self.__port):
+            raise ExceptionUART(f"Device \"{self.__port}\" does not exists")
         self.__modem_write = 'sb'
         self.__modem_read = 'rb'
-        self.__port += serial
         self.__baudrate = baudrate
 
         self._test_lrzsz_installation()
@@ -88,8 +99,8 @@ class UARTFWUploader(object):
             else:
                 print('-')
         except UnicodeDecodeError:
-            print('Error')
-            print(res)
+            logger.info('Error')
+            logger.info(res)
 
     def forward_to_serial(self, ser, proc):
         """
@@ -173,8 +184,7 @@ class UARTFWUploader(object):
         t0 = time.time()
         while uart.in_waiting == 0:
             if (time.time() - t0) > timeout:
-                print("Timeout! Not receiving reply!")
-                return None
+                raise ExceptionUART("Timeout! Not received any reply!")
 
         _input = b''
         while uart.in_waiting:
@@ -233,7 +243,7 @@ class UARTFWUploader(object):
         # Get file size and also check if file is existing on node
         file_size = self.read_file_size(file_name)
         if not file_size:
-            print('>>> Error! File not in file system')
+            logger.error('File not in file system')
             return
 
         # Calculate timeout. 8000 bytes per second is roughly the speed.
@@ -308,13 +318,19 @@ class UARTFWUploader(object):
         return self._send_cmd('boot')
 
     def remove(self, file_name):
-        return self._send_cmd('remove %s' % file_name)
+        for f in file_name:
+            if not self.send_cmd(f'remove {f}'):
+                raise ExceptionUART(f'Could not delete {f}')
 
-    def write_file(self, file_path):
-        return self.__write_file('write', file_path)
+    def write_file(self, file_names):
+        for f in file_names:
+            if not self.__write_file('write', f):
+                raise ExceptionUART(f'Could not write file {f}')
 
-    def read_file(self, file_path):
-        return self.__read_file('read', file_path)
+    def read_file(self, file_names):
+        for f in file_names:
+            if not self.__read_file('read', f):
+                raise ExceptionUART(f'Could not read file {f}')
 
     def flash_fw(self, binary_path=None):
         """
@@ -327,7 +343,15 @@ class UARTFWUploader(object):
         if not binary_path:
             binary_path = self.__binary_path
 
-        if not re.match(r'^app.+\.bin$', binary_path, re.M):
+        if re.match(r"^package.+\.zip$", binary_path, re.M):
+            # Unzip package to a temporary directory.
+            dtemp = tempfile.mkdtemp(None, 'fw_updater_uart-')
+            with zipfile.ZipFile(binary_path) as zf:
+                zf.extractall(dtemp)
+            binary_path = glob.glob(dtemp + '/*.bin')[0]    
+
+
+        elif not re.match(r'^app.+\.bin$', binary_path, re.M):
             raise ExceptionNoBinary('Error! "%s" is not a valid binary name. Needs to be "app_*.bin"')
 
         return self.__write_file('flash', binary_path)
@@ -349,58 +373,56 @@ class UARTFWUploader(object):
 def _check_result(res):
     UARTFWUploader._print(res)
     if not res:
-        print("...FAILED!")
+        logger.error("...FAILED!")
 
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', dest='app', metavar='FILE', help='flash "FILE" to device', type=str)
-    parser.add_argument('-w', dest='write', metavar='FILE', help='write "FILE" to device', type=str)
-    parser.add_argument('-r', dest='read', metavar='FILE', help='read "FILE" on device', type=str)
+    parser.add_argument('-w', nargs='+', dest='write', metavar='FILE', help='write "FILE" to device', type=str)
+    parser.add_argument('-r', nargs='+', dest='read', metavar='FILE', help='read "FILE" on device', type=str)
     parser.add_argument('-d', dest='device', help='serial device', type=str, default='ttl232r-3v3-0')
     parser.add_argument('-b', dest='boot', help='boot device', action='store_true')
     parser.add_argument('-l', dest='getlist', help='get file list', action='store_true')
     parser.add_argument('-i', dest='info', help='get flash storage info', action='store_true')
     parser.add_argument('-c', dest='check', help='Check the flash storage', action='store_true')
-    parser.add_argument('-rm', dest='remove', metavar='FILE', help='remove "FILE" from device', type=str)
+    parser.add_argument('-rm', nargs='+', dest='remove', metavar='FILE', help='remove "FILE" from device', type=str)
     parser.add_argument('-rmb', dest='remove_bin', help='remove app from device', action='store_true')
 
     args = parser.parse_args()
     dev = args.device
     uart_fw = UARTFWUploader(dev)
     if args.app:
-        print('Flash FW...')
+        logger.info('Flash FW...')
         res = uart_fw.flash_fw(args.app)
         _check_result(res)
     elif args.write:
-        print('Write file...')
-        res = uart_fw.write_file(args.write)
-        _check_result(res)
+        logger.info('Write file...')
+        uart_fw.write_file(args.write)
     elif args.read:
-        print('read file...')
-        res = uart_fw.read_file(args.read)
-        _check_result(res)
+        logger.info('read file...')
+        uart_fw.read_file(args.read)
     elif args.boot:
-        print('Boot device...')
+        logger.info('Boot device...')
         res = uart_fw.boot()
         _check_result(res)
     elif args.getlist:
-        print('Get List...')
+        logger.info('Get List...')
         res = uart_fw.get_list()
         _check_result(res)
     elif args.check:
-        print('Check flash storage...')
+        logger.info('Check flash storage...')
         uart_fw.check()
     elif args.info:
-        print('Get info...')
+        logger.info('Get info...')
         res = uart_fw.get_info()
         _check_result(res)
     elif args.remove:
-        print('Remove "%s" from device...' % args.remove)
+        logger.info('Remove "%s" from device...' % args.remove)
         uart_fw.remove(args.remove)
     elif args.remove_bin:
-        print("Remove app from device...")
+        logger.info("Remove app from device...")
         uart_fw.remove_fw()
     else:
         parser.print_help()
