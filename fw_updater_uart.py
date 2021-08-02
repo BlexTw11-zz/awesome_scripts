@@ -66,7 +66,7 @@ class UARTFWUploader:
         self._test_lrzsz_installation()
 
     @staticmethod
-    def _test_test_path(path):
+    def _test_path(path):
         """
         Check, if a file, which is to be sent, is existing.
         If not, ExceptionNoBinary is raised.
@@ -158,7 +158,7 @@ class UARTFWUploader:
         """
         proc = sp.Popen(args, stdin=sp.PIPE, stdout=sp.PIPE)
 
-        fwc = threading.Thread(target=self.forward_to_app, args=(uart,proc,))
+        fwc = threading.Thread(target=self.forward_to_app, args=(uart, proc,))
         fwc.start()
 
         self.forward_to_serial(uart, proc)
@@ -179,8 +179,9 @@ class UARTFWUploader:
         uart.reset_input_buffer()
         _cmd = cmd
 
-        for c in _cmd: 
-            uart.write(c.encode())
+        for c in _cmd:
+            _c = c.encode()
+            uart.write(_c)
             time.sleep(0.002)
         uart.write(b'\r\n')
 
@@ -188,7 +189,7 @@ class UARTFWUploader:
         t0 = time.time()
         while uart.in_waiting == 0:
             if (time.time() - t0) > timeout:
-                raise ExceptionUART("Timeout! Not received any reply!")
+                raise ExceptionUART("Timeout! Not received any reply! Perhaps drive is not in BOOT mode. Call with -o")
 
         _input = b''
         while uart.in_waiting:
@@ -256,7 +257,7 @@ class UARTFWUploader:
             timeout = 5
 
         self._send_cmd('\n')
-        cmd += ' '+file_name
+        cmd += ' ' + file_name
         res = self._send_cmd(cmd)
         self._print(res)
 
@@ -309,15 +310,6 @@ class UARTFWUploader:
             retry -= 1
         return res
 
-    def get_list(self):
-        return self.send_cmd('getlist')
-
-    def get_info(self):
-        return self.send_cmd('info')
-
-    def check(self):
-        return self.send_cmd('check')
-
     def boot(self):
         return self._send_cmd('boot')
 
@@ -335,6 +327,16 @@ class UARTFWUploader:
         for f in file_names:
             if not self.__read_file('read', f):
                 raise ExceptionUART(f'Could not read file {f}')
+
+    def get_list(self):
+        _list = self.send_cmd("getlist")
+        file_list = re.findall(r'(.+), size: (\d+)', _list.decode())
+
+        res = list()
+        for name, size in file_list:
+            res.append({"name": name, "size": int(size)})
+
+        return res
 
     def flash_fw(self, binary_path=None):
         """
@@ -371,6 +373,7 @@ class UARTFWUploader:
         if not os.path.isfile(bin_empty):
             with open(bin_empty, 'w') as f:
                 f.write("void\n")
+
         return self.__write_file('flash', bin_empty)
 
 
@@ -382,53 +385,59 @@ def _check_result(res):
 
 if __name__ == '__main__':
     import argparse
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('-a', dest='app', metavar='FILE', help='flash "FILE" to device', type=str)
-    parser.add_argument('-w', nargs='+', dest='write', metavar='FILE', help='write "FILE" to device', type=str)
-    parser.add_argument('-r', nargs='+', dest='read', metavar='FILE', help='read "FILE" on device', type=str)
-    parser.add_argument('-d', dest='device', help='serial device', type=str, default='ttl232r-3v3-0')
-    parser.add_argument('-b', dest='boot', help='boot device', action='store_true')
-    parser.add_argument('-l', dest='getlist', help='get file list', action='store_true')
-    parser.add_argument('-i', dest='info', help='get flash storage info', action='store_true')
-    parser.add_argument('-c', dest='check', help='Check the flash storage', action='store_true')
-    parser.add_argument('-rm', nargs='+', dest='remove', metavar='FILE', help='remove "FILE" from device', type=str)
-    parser.add_argument('-rmb', dest='remove_bin', help='remove app from device', action='store_true')
+    parser.add_argument('-d', '--device', dest='device', help='Serial device', type=str, default='ttl232r-3v3-0')
+    parser.add_argument('-o', '--hold', dest='hold', help='Stop booting', action='store_true')
+    parser.add_argument('-w', '--write', nargs='+', dest='write', metavar='FILE', help='Write <FILE> to device', type=str)
+    parser.add_argument('-r', '--read', nargs='+', dest='read', metavar='FILE', help='Read <FILE> on device', type=str)
+    parser.add_argument('-a', '--app', dest='app', metavar='APP', help='Flash firmware <APP> to device. Can also be a SOMANET firmware package.', type=str)
+    parser.add_argument('-b', '--boot', dest='boot', help='Boot firmware', action='store_true')
+    parser.add_argument('-l', '--list', dest='getlist', help='Get file list', action='store_true')
+    parser.add_argument('-i', '--info', dest='info', help='Get flash storage info', action='store_true')
+    parser.add_argument('-c', '--check', dest='check', help='Check the flash storage', action='store_true')
+    parser.add_argument('-v', '--version', dest='version', help='Get bootloader version', action='store_true')
+    parser.add_argument('-bh', '--blhelp', dest='help', help='Show bootloader help', action='store_true')
+    parser.add_argument('-rm', '--remove', nargs='+', dest='remove', metavar='FILE', help='Remove <FILE> from device', type=str)
+    parser.add_argument('-rmb', '--removebinary', dest='remove_bin', help='Remove firmware from device', action='store_true')
 
     args = parser.parse_args()
     dev = args.device
     uart_fw = UARTFWUploader(dev)
-    if args.app:
-        logger.info('Flash FW...')
-        res = uart_fw.flash_fw(args.app)
-        _check_result(res)
-    elif args.write:
-        logger.info('Write file...')
-        uart_fw.write_file(args.write)
-    elif args.read:
-        logger.info('read file...')
-        uart_fw.read_file(args.read)
-    elif args.boot:
-        logger.info('Boot device...')
-        res = uart_fw.boot()
-        _check_result(res)
-    elif args.getlist:
-        logger.info('Get List...')
-        res = uart_fw.get_list()
-        _check_result(res)
-    elif args.check:
-        logger.info('Check flash storage...')
-        uart_fw.check()
-    elif args.info:
-        logger.info('Get info...')
-        res = uart_fw.get_info()
-        _check_result(res)
-    elif args.remove:
-        logger.info('Remove "%s" from device...' % args.remove)
-        uart_fw.remove(args.remove)
-    elif args.remove_bin:
-        logger.info("Remove app from device...")
-        uart_fw.remove_fw()
-    else:
-        parser.print_help()
 
+    # Just always send hold
+    uart_fw.send_cmd("hold")
 
+    for arg, value in vars(args).items():
+        if value is None or not value or arg == "device":
+            continue
+
+        if arg == "app":
+            logger.info('Flash FW...')
+            res = uart_fw.flash_fw(args.app)
+            _check_result(res)
+        elif arg == "write":
+            logger.info('Write file...')
+            uart_fw.write_file(args.write)
+        elif arg == "read":
+            logger.info('read file...')
+            uart_fw.read_file(args.read)
+        elif arg == "boot":
+            logger.info('Boot device...')
+            res = uart_fw.boot()
+            _check_result(res)
+        elif arg in ("hold", "check", "info", "version", "help"):
+            logger.info(f"{arg}...")
+            res = uart_fw.send_cmd(arg)
+            _check_result(res)
+        elif arg == "getlist":
+            logger.info(f"{arg}...")
+            print(uart_fw.get_list())
+        elif arg == "remove":
+            logger.info(f'Remove "{args.remove}" from device...')
+            uart_fw.remove(args.remove)
+        elif arg == "remove_bin":
+            logger.info("Remove app from device...")
+            uart_fw.remove_fw()
+        else:
+            parser.print_help()
