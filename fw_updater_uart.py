@@ -35,7 +35,7 @@ class ExceptionLRZSZMissing(ExceptionUART):
     pass
 
 
-class UARTFWUploader(object):
+class UARTFWUploader:
 
     def __init__(self, serial, binary_path=None, baudrate=115200):
         """
@@ -49,12 +49,13 @@ class UARTFWUploader(object):
         """
         self.__binary_path = None
         if binary_path:
-            self.__binary_path = self._test_test_path(binary_path)
-       
-        self.__port = '' 
-        if '/dev/' not in serial:
-            self.__port = '/dev/'
-        self.__port += serial
+            self.__binary_path = self._test_path(binary_path)
+
+        if not serial.startswith('/dev/'):
+            self.__port = os.path.join('/dev/', serial)
+        else:
+            self.__port = serial
+
         if not os.path.exists(self.__port):
             raise ExceptionUART(f"Device \"{self.__port}\" does not exists")
         self.__modem_write = 'sb'
@@ -82,7 +83,7 @@ class UARTFWUploader(object):
         Check, if lrzsz (YMODEM) is installed.
         If not, ExceptionLRZSZMissing is raised.
         """
-        if sp.call('command -v %s' % self.__modem_write, shell=True, stdout=sp.DEVNULL) != 0:
+        if sp.call(f'command -v {self.__modem_write}', shell=True, stdout=sp.DEVNULL) != 0:
             raise ExceptionLRZSZMissing("lrzsz not installed! Call \"apt install lrzsz\"")
 
     @staticmethod
@@ -283,7 +284,7 @@ class UARTFWUploader(object):
         while True:
             res = self.send_cmd('getlist')
             res = res.decode(errors='backslashreplace')
-            re_res = re.search(r'%s, size: (\d+)' % _file, res)
+            re_res = re.search(rf'{_file}, size: (\d+)', res)
             if re_res:
                 return int(re_res.group(1))
 
