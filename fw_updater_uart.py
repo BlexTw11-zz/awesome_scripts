@@ -18,11 +18,14 @@ import tempfile
 import glob
 import logging
 
-logging.basicConfig(stream=sys.stderr, level=logging.INFO, format='(%(levelname)s): %(message)s')
+# logging.basicConfig(stream=sys.stderr, level=logging.INFO, format='[%(levelname)s]: %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__name__)
+
 
 class ExceptionUART(Exception):
     pass
+
 
 class ExceptionNoBinary(ExceptionUART):
     pass
@@ -95,12 +98,11 @@ class UARTFWUploader(object):
             res = res.decode(errors='backslashreplace')
             if len(res) > 0:
                 for l in res.splitlines():
-                    print('>>> ' + l)
+                    logger.info('>>> ' + l)
             else:
-                print('-')
+                logger.info('-')
         except UnicodeDecodeError:
-            logger.info('Error')
-            logger.info(res)
+            logger.error(f'Error: {res}')
 
     def forward_to_serial(self, ser, proc):
         """
@@ -221,7 +223,7 @@ class UARTFWUploader(object):
             return
 
         self._print(res)
-        print()
+        logger.info("")
 
         uart = serial.Serial(self.__port, self.__baudrate, timeout=timeout)
         self._call([self.__modem_write, file_path], uart)
