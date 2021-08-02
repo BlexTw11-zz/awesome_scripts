@@ -58,8 +58,9 @@ class UARTFWUploader:
 
         if not os.path.exists(self.__port):
             raise ExceptionUART(f"Device \"{self.__port}\" does not exists")
-        self.__modem_write = 'sb'
-        self.__modem_read = 'rb'
+
+        self.__modem_write = 'sz'
+        self.__modem_read = 'rz'
         self.__baudrate = baudrate
 
         self._test_lrzsz_installation()
@@ -227,7 +228,7 @@ class UARTFWUploader:
         logger.info("")
 
         uart = serial.Serial(self.__port, self.__baudrate, timeout=timeout)
-        self._call([self.__modem_write, file_path], uart)
+        self._call([self.__modem_write, "--ymodem", file_path], uart)
         time.sleep(0.01)
 
         res = uart.read(uart.in_waiting)
@@ -261,7 +262,7 @@ class UARTFWUploader:
 
         print()
         uart = serial.Serial(self.__port, self.__baudrate, timeout=timeout)
-        modem = [self.__modem_read, '-E', '-t', str(int(timeout*10))]
+        modem = [self.__modem_read, "--ymodem", '-E', '-t', str(int(timeout * 10))]
 
         self._call(modem, uart)
         time.sleep(0.01)
