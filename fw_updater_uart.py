@@ -347,16 +347,16 @@ class UARTFWUploader:
         if not binary_path:
             binary_path = self.__binary_path
 
-        if re.match(r"^package.+\.zip$", binary_path, re.M):
+        file_name = os.path.basename(binary_path)
+        if re.match(r"^package.+\.zip$", file_name, re.M):
             # Unzip package to a temporary directory.
             dtemp = tempfile.mkdtemp(None, 'fw_updater_uart-')
             with zipfile.ZipFile(binary_path) as zf:
                 zf.extractall(dtemp)
-            binary_path = glob.glob(dtemp + '/*.bin')[0]    
+            binary_path = glob.glob(os.path.join(dtemp, '*.bin'))[0]
 
-
-        elif not re.match(r'^app.+\.bin$', binary_path, re.M):
-            raise ExceptionNoBinary('Error! "%s" is not a valid binary name. Needs to be "app_*.bin"')
+        elif not re.match(r'^app.+\.bin$', file_name, re.M):
+            raise ExceptionNoBinary(f'Error! "{file_name}" is not a valid binary name. Needs to be "app_*.bin"')
 
         return self.__write_file('flash', binary_path)
 
