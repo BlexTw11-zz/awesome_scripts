@@ -205,12 +205,15 @@ class UARTFWUploader:
 
         print()
         self.uart = serial.Serial(self.__port, self.__baudrate, timeout=timeout)
+        self.uart.reset_input_buffer()
+        self.uart.reset_output_buffer()
 
         self.modem.recv_file(".")
         time.sleep(0.01)
 
         if self.uart.in_waiting > 0:
             res = self.uart.read(self.uart.in_waiting)
+
         self.uart.close()
 
         return res
@@ -256,18 +259,23 @@ class UARTFWUploader:
 
     def remove(self, file_name):
         for f in file_name:
+            logger.info(f"Remove: '{f}'")
             if not self.send_cmd(f'remove {f}'):
                 raise ExceptionUART(f'Could not delete file {f}')
 
     def write_file(self, file_names):
         for f in file_names:
+            logger.info(f"Write: '{f}'")
             if not self.__write_file('write', f):
                 raise ExceptionUART(f'Could not write file {f}')
+            self.modem.reset()
 
     def read_file(self, file_names):
         for f in file_names:
+            logger.info(f"Read: '{f}'")
             if not self.__read_file('read', f):
                 raise ExceptionUART(f'Could not read file {f}')
+            self.modem.reset()
 
     def get_list(self):
         _list = self.send_cmd("getlist")
@@ -358,11 +366,9 @@ if __name__ == '__main__':
             res = uart_fw.flash_fw(args.app)
             _check_result(res)
         elif arg == "write":
-            logger.info(f'Write file {args.write} ...')
             uart_fw.write_file(args.write)
             logger.info(f'Done')
         elif arg == "read":
-            logger.info(f'Read file {args.read} ...')
             uart_fw.read_file(args.read)
             logger.info(f'Done')
         elif arg == "boot":
