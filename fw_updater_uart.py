@@ -338,9 +338,9 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--info', dest='info', help='Get flash storage info', action='store_true')
     parser.add_argument('-c', '--check', dest='check', help='Check the flash storage', action='store_true')
     parser.add_argument('-v', '--version', dest='version', help='Get bootloader version', action='store_true')
-    parser.add_argument('-bh', '--blhelp', dest='help', help='Show bootloader help', action='store_true')
+    parser.add_argument('-bh', '--bootloader-help', dest='help', help='Show bootloader help', action='store_true')
     parser.add_argument('-rm', '--remove', nargs='+', dest='remove', metavar='FILE', help='Remove <FILE> from device', type=str)
-    parser.add_argument('-rmb', '--removebinary', dest='remove_bin', help='Remove firmware from device', action='store_true')
+    parser.add_argument('-rma', '--remove-app', dest='remove_bin', help='Remove firmware from device', action='store_true')
 
     args = parser.parse_args()
     dev = args.device
