@@ -25,11 +25,17 @@ class YModem(object):
     def __init__(self, getc, putc, header_pad=b'\x00', data_pad=b'\x1a'):
         self.getc = getc
         self.putc = putc
-        self.st = SendTask()
-        self.rt = ReceiveTask()
+        self.set_tasks()
         self.header_pad = header_pad
         self.data_pad = data_pad
         self.log = logging.getLogger('YReporter')
+
+    def reset(self):
+        self.set_tasks()
+
+    def set_tasks(self):
+        self.st = SendTask()
+        self.rt = ReceiveTask()
 
     def abort(self, count=2):
         for _ in range(count):
