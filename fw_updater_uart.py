@@ -17,6 +17,7 @@ import zipfile
 import tempfile
 import glob
 import logging
+import platform
 
 from ymodem.YModem import YModem
 
@@ -53,12 +54,12 @@ class UARTFWUploader:
         if binary_path:
             self.__binary_path = self._test_path(binary_path)
 
-        if not serial.startswith('/dev/'):
+        if not serial.startswith('/dev/') and platform.system() == "Linux":
             self.__port = os.path.join('/dev/', serial)
         else:
             self.__port = serial
 
-        if not os.path.exists(self.__port):
+        if not os.path.exists(self.__port) and platform.system() == "Linux":
             raise ExceptionUART(f"Device \"{self.__port}\" does not exists")
 
         self.__baudrate = baudrate
