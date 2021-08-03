@@ -90,9 +90,12 @@ class UARTFWUploader:
             return
         try:
             res = res.decode(errors='backslashreplace')
+
             if len(res) > 0:
                 for l in res.splitlines():
-                    logger.info('>>> ' + l)
+                    if l:
+                        l = "".join([r for r in l if r.isprintable()])
+                        logger.info(f'>>> {l}')
             else:
                 logger.info('-')
         except UnicodeDecodeError:
