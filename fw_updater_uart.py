@@ -18,6 +18,8 @@ import tempfile
 import glob
 import logging
 
+from ymodem.YModem import YModem
+
 # logging.basicConfig(stream=sys.stderr, level=logging.INFO, format='[%(levelname)s]: %(message)s')
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__name__)
@@ -59,11 +61,9 @@ class UARTFWUploader:
         if not os.path.exists(self.__port):
             raise ExceptionUART(f"Device \"{self.__port}\" does not exists")
 
-        self.__modem_write = 'sz'
-        self.__modem_read = 'rz'
         self.__baudrate = baudrate
 
-        self._test_lrzsz_installation()
+        self.modem = YModem(self.getc, self.putc)
 
     @staticmethod
     def _test_path(path):
@@ -78,14 +78,6 @@ class UARTFWUploader:
         if os.path.isfile(path):
             return path
         raise ExceptionNoBinary("No file found")
-
-    def _test_lrzsz_installation(self):
-        """
-        Check, if lrzsz (YMODEM) is installed.
-        If not, ExceptionLRZSZMissing is raised.
-        """
-        if sp.call(f'command -v {self.__modem_write}', shell=True, stdout=sp.DEVNULL) != 0:
-            raise ExceptionLRZSZMissing("lrzsz not installed! Call \"apt install lrzsz\"")
 
     @staticmethod
     def _print(res):
@@ -106,64 +98,11 @@ class UARTFWUploader:
         except UnicodeDecodeError:
             logger.error(f'Error: {res}')
 
-    def forward_to_serial(self, ser, proc):
-        """
-        Reads YMODEM command from stdout and sends it to serial device.
-        Code found in internet!
-        :param ser: serial device
-        :type ser: serial.Serial()
-        :param proc: subprocess, which is running YMODEM (sb, rb)
-        :type proc: subprocess.Popen
-        """
-        MAX_READ_SIZE = 4096
-        while True:
-            try:
-                data = proc.stdout.read1(MAX_READ_SIZE)
-            except IOError as e:
-                if e.errno == errno.EPIPE:
-                    break
+    def getc(self, size):
+        return self.uart.read(size) or None
 
-            if not data:
-                break  # EOF
-            ser.write(data)
-
-    def forward_to_app(self, ser, proc):
-        """
-        Reading messages from serial device and sends it through stdin to YMODEM.
-        Code found in internet!
-        :param ser: serial device
-        :type ser: serial.Serial()
-        :param proc: subprocess, which is running YMODEM (sb, rb)
-        :type proc: subprocess.Popen
-        """
-        while True:
-            try:
-                if ser.in_waiting:
-                    msg = ser.read()
-                    proc.stdin.write(msg)
-                    proc.stdin.flush()
-            except IOError as e:
-                if e.errno == errno.EPIPE:
-                    break
-
-    def _call(self, args, uart):
-        """
-        Starts YMODEM in process and forward_to_app() in a thread.
-        Runs forward_to_serial() itself.
-        Code found in internet!
-        :param args: YMODEM Arguments
-        :type args: list
-        :param ser: serial device
-        :type ser: serial.Serial()
-        """
-        proc = sp.Popen(args, stdin=sp.PIPE, stdout=sp.PIPE)
-
-        fwc = threading.Thread(target=self.forward_to_app, args=(uart, proc,))
-        fwc.start()
-
-        self.forward_to_serial(uart, proc)
-
-        fwc.join()
+    def putc(self, data):
+        return self.uart.write(data)
 
     def _send_cmd(self, cmd, timeout=2):
         """
@@ -175,29 +114,29 @@ class UARTFWUploader:
         :return: Received message
         :rtype: binary
         """
-        uart = serial.Serial(self.__port, self.__baudrate, timeout=timeout)
-        uart.reset_input_buffer()
+        self.uart = serial.Serial(self.__port, self.__baudrate, timeout=timeout)
+        self.uart.reset_input_buffer()
         _cmd = cmd
 
         for c in _cmd:
             _c = c.encode()
-            uart.write(_c)
+            self.uart.write(_c)
             time.sleep(0.002)
-        uart.write(b'\r\n')
+        self.uart.write(b'\r\n')
 
         # wait for reply
         t0 = time.time()
-        while uart.in_waiting == 0:
+        while self.uart.in_waiting == 0:
             if (time.time() - t0) > timeout:
                 raise ExceptionUART("Timeout! Not received any reply! Perhaps drive is not in BOOT mode. Call with -o")
 
         _input = b''
-        while uart.in_waiting:
-            _input_bytes = uart.in_waiting
-            _input += uart.read(_input_bytes)
+        while self.uart.in_waiting:
+            _input_bytes = self.uart.in_waiting
+            _input += self.uart.read(_input_bytes)
             time.sleep(0.05)
-        uart.reset_input_buffer()
-        uart.close()
+        self.uart.reset_input_buffer()
+        self.uart.close()
         return _input
 
     def __write_file(self, cmd, file_path):
@@ -228,12 +167,12 @@ class UARTFWUploader:
         self._print(res)
         logger.info("")
 
-        uart = serial.Serial(self.__port, self.__baudrate, timeout=timeout)
-        self._call([self.__modem_write, "--ymodem", file_path], uart)
+        self.uart = serial.Serial(self.__port, self.__baudrate, timeout=timeout)
+        self.modem.send_file(file_path)
         time.sleep(0.01)
 
-        res = uart.read(uart.in_waiting)
-        uart.close()
+        res = self.uart.read(self.uart.in_waiting)
+        self.uart.close()
         return res
 
     def __read_file(self, cmd, file_name):
@@ -262,15 +201,14 @@ class UARTFWUploader:
         self._print(res)
 
         print()
-        uart = serial.Serial(self.__port, self.__baudrate, timeout=timeout)
-        modem = [self.__modem_read, "--ymodem", '-E', '-t', str(int(timeout * 10))]
+        self.uart = serial.Serial(self.__port, self.__baudrate, timeout=timeout)
 
-        self._call(modem, uart)
+        self.modem.recv_file(".")
         time.sleep(0.01)
 
-        if uart.in_waiting > 0:
-            res = uart.read(uart.in_waiting)
-        uart.close()
+        if self.uart.in_waiting > 0:
+            res = self.uart.read(self.uart.in_waiting)
+        self.uart.close()
 
         return res
 
@@ -316,7 +254,7 @@ class UARTFWUploader:
     def remove(self, file_name):
         for f in file_name:
             if not self.send_cmd(f'remove {f}'):
-                raise ExceptionUART(f'Could not delete {f}')
+                raise ExceptionUART(f'Could not delete file {f}')
 
     def write_file(self, file_names):
         for f in file_names:
@@ -417,11 +355,13 @@ if __name__ == '__main__':
             res = uart_fw.flash_fw(args.app)
             _check_result(res)
         elif arg == "write":
-            logger.info('Write file...')
+            logger.info(f'Write file {args.write} ...')
             uart_fw.write_file(args.write)
+            logger.info(f'Done')
         elif arg == "read":
-            logger.info('read file...')
+            logger.info(f'Read file {args.read} ...')
             uart_fw.read_file(args.read)
+            logger.info(f'Done')
         elif arg == "boot":
             logger.info('Boot device...')
             res = uart_fw.boot()
@@ -431,7 +371,7 @@ if __name__ == '__main__':
             res = uart_fw.send_cmd(arg)
             _check_result(res)
         elif arg == "getlist":
-            logger.info(f"{arg}...")
+            logger.info(f"Get file list ...")
             print(uart_fw.get_list())
         elif arg == "remove":
             logger.info(f'Remove "{args.remove}" from device...')
